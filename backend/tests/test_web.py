@@ -68,7 +68,7 @@ def test_admin_pages_render(client, url):
     login(client, "admin")
     r = client.get(url)
     assert r.status_code == 200, r.text[:2000]
-    assert "sawo-logo.png" in r.text and "Development fixture" in r.text
+    assert "sawo-logo.png" in r.text and "DEMO · secondary DB" in r.text
     assert r.headers["content-security-policy"].startswith("default-src 'self'")
 
 

@@ -28,7 +28,9 @@ docker compose exec web python -m oicas.cli import-legacy   # migrate the Excel 
 docker compose exec web python -m oicas.cli sync            # first (simulated) Odoo sync
 ```
 
-Log in as `admin` / `manager` / `counter` / `viewer` with password `demo` (fake mode only). Then go to **System Configuration → Odoo locations**, map `WH/Stock` → WAREHOUSE and `WH/Pre-Production` → PRODUCTION, and run *Sync Odoo now*.
+Log in as `admin` / `manager` / `counter` / `viewer` with password `demo` (fake mode only).
+
+**Live vs demo:** `ODOO_MODE=live` connects to the real Odoo, lets users log in with their Odoo username/email and password, and stores everything in the **primary** database (`oicas`). `ODOO_MODE=fake` uses the simulated Odoo, the demo accounts and the **secondary** database (`oicas_demo`). The two never share data. Change the value in `.env`, then run `docker compose up -d`. Then go to **System Configuration → Odoo locations**, map `WH/Stock` → WAREHOUSE and `WH/Pre-Production` → PRODUCTION, and run *Sync Odoo now*.
 
 Connecting to the real Odoo: see [docs/odoo-integration.md](docs/odoo-integration.md). Production deployment, backups and operations: see [docs/admin-guide.md](docs/admin-guide.md).
 

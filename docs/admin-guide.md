@@ -15,6 +15,21 @@ docker compose exec web python -m oicas.cli odoo-probe  # read-only Odoo connect
 
 For production: `APP_ENV=production`, `ODOO_MODE=live`, `COOKIE_SECURE=true`, and serve behind HTTPS (e.g. the existing reverse proxy). The app refuses to start in production with unsafe settings.
 
+## Live and demo databases
+
+`ODOO_MODE` in `.env` selects both the Odoo connection and the database:
+
+| `ODOO_MODE` | Database | Login | Data |
+|---|---|---|---|
+| `live` | **primary** `oicas` (`DATABASE_URL`) | real Odoo username/email + password (checked by Odoo) | live data only |
+| `fake` | **secondary** `oicas_demo` (`DEMO_DATABASE_URL`) | demo accounts `admin`/`manager`/`counter`/`viewer`, password `demo` | demo/training data only |
+
+Switch with `docker compose up -d` after editing `.env`. The containers are recreated and connect to the other database; each database keeps its own users, sessions and history. On start, `web` creates the selected database if it's missing and applies migrations. OICAS refuses to start if both URLs point at the same database. The header shows **LIVE · primary DB** or **DEMO · secondary DB** on every page.
+
+Login with Odoo needs only `ODOO_URL` and `ODOO_DB`: the user's own credentials read their own profile and groups. The scheduled sync also needs `ODOO_SYNC_LOGIN` / `ODOO_SYNC_API_KEY`; until they're set, the worker logs a warning and skips the sync.
+
+Back up both databases: `pg_dump -U oicas -Fc oicas` and `pg_dump -U oicas -Fc oicas_demo`.
+
 ## One-off migration of the Excel history
 
 *System Configuration → Imports → Migrate legacy workbooks*, or:

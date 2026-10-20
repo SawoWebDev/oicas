@@ -37,9 +37,11 @@ def engine() -> Engine:
     global _engine, _factory
     if _engine is None:
         s = get_settings()
-        if s.database_url.startswith("sqlite:///./"):
+        s.check_database_separation()
+        url = s.active_database_url  # live → primary, demo → secondary
+        if url.startswith("sqlite:///./"):
             s.data_dir.mkdir(parents=True, exist_ok=True)
-        _engine = make_engine(s.database_url)
+        _engine = make_engine(url)
         _factory = sessionmaker(bind=_engine, expire_on_commit=False, future=True)
     return _engine
 

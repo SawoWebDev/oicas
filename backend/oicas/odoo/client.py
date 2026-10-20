@@ -33,7 +33,7 @@ class OdooGateway(Protocol):
 
     def authenticate(self, login: str, password: str) -> int | None: ...
 
-    def user_info(self, uid: int) -> dict: ...
+    def user_info(self, uid: int, secret: str | None = None) -> dict: ...
 
     def search_read(self, model: str, domain: list, fields: list[str], order: str = "id") -> Iterator[dict]: ...
 
@@ -71,10 +71,12 @@ TRANSIENT = (socket.timeout, TimeoutError, ConnectionError, http.client.HTTPExce
 class LiveOdoo:
     mode = "live"
 
-    def __init__(self, url: str, db: str, login: str, api_key: str, timeout: float = 60, page_size: int = 1000,
-                 max_retries: int = 3):
-        if not (url and db and login and api_key):
-            raise OdooError("Odoo connection is not configured (ODOO_URL, ODOO_DB, ODOO_SYNC_LOGIN, ODOO_SYNC_API_KEY)")
+    def __init__(self, url: str, db: str, login: str = "", api_key: str = "", timeout: float = 60,
+                 page_size: int = 1000, max_retries: int = 3):
+        # URL + database are enough for "Login with Odoo"; the service account (login + API key) is
+        # only needed for synchronisation.
+        if not (url and db):
+            raise OdooError("Odoo connection is not configured (ODOO_URL, ODOO_DB)")
         self.url, self.db, self.login, self._key = url.rstrip("/"), db, login, api_key
         self.page_size, self.max_retries = page_size, max_retries
         transport = _TimeoutSafeTransport(timeout) if self.url.startswith("https") else _TimeoutTransport(timeout)
@@ -103,6 +105,8 @@ class LiveOdoo:
         raise OdooError(f"{what}: retries exhausted")  # pragma: no cover
 
     def _service_uid(self) -> int:
+        if not (self.login and self._key):
+            raise OdooError("the Odoo sync service account is not configured (ODOO_SYNC_LOGIN, ODOO_SYNC_API_KEY)")
         if self._uid is None:
             uid = self._retry(lambda: self._common.authenticate(self.db, self.login, self._key, {}), "authenticate")
             if not uid:
@@ -110,10 +114,12 @@ class LiveOdoo:
             self._uid = int(uid)
         return self._uid
 
-    def _call(self, model: str, method: str, args: list, kwargs: dict | None = None):
+    def _call(self, model: str, method: str, args: list, kwargs: dict | None = None,
+              as_user: tuple[int, str] | None = None):
+        """Read-only model call, as the service account or (``as_user``) as the logged-in user."""
         assert_read_only(method)
-        uid = self._service_uid()
-        return self._retry(lambda: self._object.execute_kw(self.db, uid, self._key, model, method, args, kwargs or {}),
+        uid, secret = as_user if as_user else (self._service_uid(), self._key)
+        return self._retry(lambda: self._object.execute_kw(self.db, uid, secret, model, method, args, kwargs or {}),
                            f"{model}.{method}")
 
     # -- gateway API ----------------------------------------------------------------------
@@ -125,19 +131,29 @@ class LiveOdoo:
         uid = self._retry(lambda: self._common.authenticate(self.db, login, password, {}), "user authenticate")
         return int(uid) if uid else None
 
-    def user_info(self, uid: int) -> dict:
+    def user_info(self, uid: int, secret: str | None = None) -> dict:
+        """Profile and group XML ids of an Odoo user.
+
+        With ``secret`` (the user's own password/API key just verified by ``authenticate``) the user
+        reads *their own* record, so login works without the sync service account.
+        """
+        who = (uid, secret) if secret else None
         if self._groups_field is None:
-            fields = self._call("res.users", "fields_get", [], {"attributes": ["type"]})
+            fields = self._call("res.users", "fields_get", [], {"attributes": ["type"]}, as_user=who)
             self._groups_field = "groups_id" if "groups_id" in fields else "group_ids"
         rows = self._call("res.users", "read", [[uid]], {"fields": ["login", "name", "email", "share", "active",
-                                                                     self._groups_field]})
+                                                                     self._groups_field]}, as_user=who)
         if not rows:
-            raise OdooError(f"Odoo user {uid} not readable by the service account")
+            raise OdooError(f"Odoo user {uid} could not be read")
         u = rows[0]
         gids = u.get(self._groups_field) or []
-        xmlids = [f"{r['module']}.{r['name']}" for r in self._call(
-            "ir.model.data", "search_read", [[("model", "=", "res.groups"), ("res_id", "in", gids)]],
-            {"fields": ["module", "name"]})]
+        try:
+            xmlids = [f"{r['module']}.{r['name']}" for r in self._call(
+                "ir.model.data", "search_read", [[("model", "=", "res.groups"), ("res_id", "in", gids)]],
+                {"fields": ["module", "name"]}, as_user=who)]
+        except OdooError:
+            log.warning("could not resolve group XML ids for Odoo user %s; default role applies", uid)
+            xmlids = []
         return {"uid": uid, "login": u["login"], "name": u.get("name") or u["login"], "email": u.get("email") or None,
                 "share": bool(u.get("share")), "active": bool(u.get("active", True)), "groups": sorted(xmlids)}
 

@@ -8,18 +8,20 @@
       <h1 class="h5 fw-bold mt-3 mb-1">Inventory Control &amp; Analytics</h1>
       <div class="muted small">OICAS · log in with your Odoo account</div>
     </div>
-    {% if settings.odoo_mode == 'fake' %}
-      <div class="env-banner"><i class="bi bi-cone-striped"></i><span>Development fixture: use <b>admin</b>, <b>manager</b>, <b>counter</b> or <b>viewer</b> with password <b>demo</b>.</span></div>
+    {% if settings.is_live %}
+      <div class="text-center mb-3"><span class="pill tone-green"><i class="bi bi-broadcast"></i> LIVE · {{ settings.odoo_url|replace('https://', '')|replace('http://', '') }} · {{ settings.odoo_db }}</span></div>
+    {% else %}
+      <div class="env-banner"><i class="bi bi-cone-striped"></i><span><b>Demo mode</b> (secondary database): use <b>admin</b>, <b>manager</b>, <b>counter</b> or <b>viewer</b> with password <b>demo</b>. Odoo accounts work only in live mode.</span></div>
     {% endif %}
     {% if error %}<div class="alert alert-danger py-2 small">{{ error }}</div>{% endif %}
     <form method="post" action="/login" novalidate>
       <input type="hidden" name="next" value="{{ next }}">
       <div class="mb-3">
-        <label class="form-label small fw-semibold" for="login">Odoo email / login</label>
+        <label class="form-label small fw-semibold" for="login">{{ 'Odoo username / email' if settings.is_live else 'Demo login' }}</label>
         <input class="form-control" id="login" name="login" type="text" autocomplete="username" value="{{ login }}" required autofocus>
       </div>
       <div class="mb-4">
-        <label class="form-label small fw-semibold" for="password">Odoo password</label>
+        <label class="form-label small fw-semibold" for="password">{{ 'Odoo password' if settings.is_live else 'Demo password' }}</label>
         <input class="form-control" id="password" name="password" type="password" autocomplete="current-password" required>
       </div>
       <button class="btn btn-primary w-100 py-2" type="submit" name="method" value="odoo"><i class="bi bi-box-arrow-in-right me-1"></i> Log in with Odoo</button>

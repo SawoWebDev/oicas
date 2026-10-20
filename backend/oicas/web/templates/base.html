@@ -57,6 +57,8 @@
         </div>
       </div>
       <div class="header-actions">
+        {% if settings.is_live %}<span class="pill tone-green" title="Live Odoo · primary database"><i class="bi bi-broadcast"></i> LIVE · primary DB</span>
+        {% else %}<span class="pill tone-yellow" title="Simulated Odoo · secondary demo database"><i class="bi bi-cone-striped"></i> DEMO · secondary DB</span>{% endif %}
         {% if sync_state %}
           {% set s = sync_state %}
           <a class="sync-chip {% if s.stale %}stale{% endif %}" href="/sync" title="Latest Odoo snapshot">
@@ -70,7 +72,7 @@
     </header>
 
     {% if settings.odoo_mode == 'fake' %}
-      <div class="env-banner"><i class="bi bi-cone-striped"></i><span><b>Development fixture</b> — Odoo is simulated (ODOO_MODE=fake). Data shown is not live production data.</span></div>
+      <div class="env-banner"><i class="bi bi-cone-striped"></i><span><b>Demo mode</b> — Odoo is simulated (ODOO_MODE=fake) and you are working in the <b>secondary demo database</b>. Nothing here affects live data. Set ODOO_MODE=live to use the primary database.</span></div>
     {% endif %}
     {% if sync_state and sync_state.stale %}
       <div class="stale-banner"><i class="bi bi-exclamation-triangle"></i><span>

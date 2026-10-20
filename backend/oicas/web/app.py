@@ -108,7 +108,7 @@ def logout(request: Request, db: Session = Depends(get_db)):
 @app.get("/healthz")
 def healthz(db: Session = Depends(get_db)):
     db.execute(text("select 1"))
-    return JSONResponse({"status": "ok", "odoo_mode": settings.odoo_mode})
+    return JSONResponse({"status": "ok", "odoo_mode": settings.odoo_mode, "database": settings.database_role})
 
 
 # ------------------------------------------------------------------ dashboard

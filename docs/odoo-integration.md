@@ -46,4 +46,6 @@ If the site uses Odoo SSO (OAuth/SAML) without passwords, users can log in with 
 
 ## Verification status
 
-The integration has been tested against an in-memory Odoo fixture (`ODOO_MODE=fake`) that implements the same read-only contract. **It has not yet been run against SAWO's real Odoo instance**, because that needs the URL, database and a service-account API key (see TRACKER.md, Phase 3).
+* Tested against an in-memory Odoo fixture (`ODOO_MODE=fake`) that implements the same read-only contract.
+* 2026-10-20: `https://erp.sawo.com` (database `sawo`) is reachable from the Docker host and reports **Odoo 17.0 Enterprise** (`server_version 17.0+e-20250901`).
+* Pending: first live login by a SAWO user, and the first live sync (needs the service-account API key).

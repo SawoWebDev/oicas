@@ -23,6 +23,28 @@ from .db import session_scope
 log = logging.getLogger("oicas")
 
 
+def cmd_prepare_db(_):
+    """Create the active database (primary for live, secondary for demo) if it doesn't exist yet."""
+    import re
+
+    from sqlalchemy import create_engine, text
+    from sqlalchemy.engine import make_url
+    s = get_settings()
+    s.check_database_separation()
+    url = make_url(s.active_database_url)
+    print(f"mode={s.odoo_mode} → {s.database_role} database ({url.database})")
+    if url.get_backend_name() != "postgresql":
+        return
+    if not re.fullmatch(r"[A-Za-z0-9_]+", url.database or ""):
+        raise SystemExit(f"invalid database name {url.database!r}")
+    eng = create_engine(url.set(database="postgres"), isolation_level="AUTOCOMMIT")
+    with eng.connect() as c:
+        if not c.execute(text("select 1 from pg_database where datname = :n"), {"n": url.database}).scalar():
+            c.execute(text(f'CREATE DATABASE "{url.database}"'))
+            print(f"created database {url.database}")
+    eng.dispose()
+
+
 def cmd_seed(_):
     from .services import auth, rules
     with session_scope() as db:
@@ -82,8 +104,13 @@ def cmd_worker(_):
     from .odoo.client import gateway_from_settings
     from .services import rules, sync
     s = get_settings()
-    log.info("worker started; inventory sync every %s min", s.sync_interval_minutes)
+    log.info("worker started (%s database); inventory sync every %s min", s.database_role, s.sync_interval_minutes)
     while True:
+        if s.is_live and not s.sync_configured:
+            log.warning("live mode: Odoo sync service account not configured (ODOO_SYNC_LOGIN / ODOO_SYNC_API_KEY); "
+                        "skipping scheduled sync")
+            time.sleep(max(1, s.sync_interval_minutes) * 60)
+            continue
         try:
             with session_scope() as db:
                 run = sync.run_inventory_sync(db, gateway_from_settings())
@@ -108,6 +135,7 @@ def main(argv=None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     p = argparse.ArgumentParser(prog="oicas")
     sub = p.add_subparsers(dest="cmd", required=True)
+    sub.add_parser("prepare-db").set_defaults(fn=cmd_prepare_db)
     sub.add_parser("seed").set_defaults(fn=cmd_seed)
     s = sub.add_parser("import-legacy")
     s.add_argument("dir", nargs="?")

@@ -72,7 +72,11 @@ def login_with_odoo(db: Session, gw: OdooGateway, login: str, password: str, ip:
         throttle.fail(key)
         audit.record(db, None, "auth.failed", "app_user", None, {"login": login}, ip)
         raise AuthError("Invalid Odoo login or password.")
-    info = gw.user_info(uid)
+    try:
+        info = gw.user_info(uid, password)  # read with the user's own credentials
+    except OdooError as e:
+        audit.record(db, None, "auth.odoo_unavailable", "app_user", None, {"login": login, "error": str(e)}, ip)
+        raise AuthError("Odoo accepted your password but your user profile couldn't be read. Contact IT.") from e
     if info.get("share") or not info.get("active", True):
         audit.record(db, None, "auth.denied", "app_user", None, {"login": login, "reason": "portal/inactive"}, ip)
         raise AuthError("Your Odoo account is not an internal user, so it can't access OICAS.")

@@ -16,4 +16,4 @@ RUN useradd --create-home --uid 1000 oicas && mkdir -p /app/data/exports && chow
 USER oicas
 
 EXPOSE 8000
-CMD ["sh", "-c", "alembic upgrade head && python -m oicas.cli seed && uvicorn oicas.web.app:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips='*'"]
+CMD ["sh", "-c", "python -m oicas.cli prepare-db && alembic upgrade head && python -m oicas.cli seed && uvicorn oicas.web.app:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips='*'"]

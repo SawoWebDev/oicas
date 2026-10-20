@@ -126,7 +126,7 @@ class FakeOdoo:
             return list(self.users).index(login) + 2
         return None
 
-    def user_info(self, uid: int) -> dict:
+    def user_info(self, uid: int, secret: str | None = None) -> dict:
         login = list(self.users)[uid - 2]
         u = self.users[login]
         return {"uid": uid, "login": login, "name": u["name"], "email": f"{login}@example.invalid", "share": False,

@@ -22,7 +22,9 @@ services:
     restart: unless-stopped
     env_file: .env
     environment:
+      # ODOO_MODE=live → primary database (oicas); ODOO_MODE=fake → secondary demo database (oicas_demo)
       DATABASE_URL: postgresql+psycopg://oicas:${POSTGRES_PASSWORD}@db:5432/oicas
+      DEMO_DATABASE_URL: postgresql+psycopg://oicas:${POSTGRES_PASSWORD}@db:5432/oicas_demo
       DATA_DIR: /app/data
     depends_on:
       db:
@@ -44,6 +46,7 @@ services:
     env_file: .env
     environment:
       DATABASE_URL: postgresql+psycopg://oicas:${POSTGRES_PASSWORD}@db:5432/oicas
+      DEMO_DATABASE_URL: postgresql+psycopg://oicas:${POSTGRES_PASSWORD}@db:5432/oicas_demo
     command: ["python", "-m", "oicas.cli", "worker"]
     depends_on:
       web:

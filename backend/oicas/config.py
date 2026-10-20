@@ -15,7 +15,10 @@ class Settings(BaseSettings):
     app_name: str = "OICAS"
     app_timezone: str = "Asia/Manila"
     secret_key: str = "dev-insecure-change-me"
+    # Primary database = LIVE data (used when ODOO_MODE=live).
     database_url: str = "sqlite:///./data/oicas.db"
+    # Secondary database = DEMO data (used when ODOO_MODE=fake). Never shares data with the primary.
+    demo_database_url: str = "sqlite:///./data/oicas_demo.db"
     data_dir: Path = Path("./data")
 
     # Sessions
@@ -51,6 +54,30 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.app_env == "production"
+
+    @property
+    def is_live(self) -> bool:
+        return self.odoo_mode == "live"
+
+    @property
+    def active_database_url(self) -> str:
+        """Live → primary database; demo (fake Odoo) → secondary database."""
+        return self.database_url if self.is_live else self.demo_database_url
+
+    @property
+    def database_role(self) -> str:
+        return "primary" if self.is_live else "demo"
+
+    @property
+    def sync_configured(self) -> bool:
+        return bool(self.odoo_url and self.odoo_db and self.odoo_sync_login and self.odoo_sync_api_key)
+
+    def check_database_separation(self) -> None:
+        """Live and demo data must never share a database."""
+        if self.database_url.strip() == self.demo_database_url.strip():
+            raise RuntimeError("DATABASE_URL (live/primary) and DEMO_DATABASE_URL (demo/secondary) must be different")
+        if self.is_live and not (self.odoo_url and self.odoo_db):
+            raise RuntimeError("ODOO_MODE=live needs ODOO_URL and ODOO_DB")
 
     @property
     def export_dir(self) -> Path:

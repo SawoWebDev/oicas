@@ -8,14 +8,14 @@ target_metadata = Base.metadata
 
 
 def run_migrations_offline() -> None:
-    context.configure(url=get_settings().database_url, target_metadata=target_metadata, literal_binds=True,
+    context.configure(url=get_settings().active_database_url, target_metadata=target_metadata, literal_binds=True,
                       render_as_batch=True)
     with context.begin_transaction():
         context.run_migrations()
 
 
 def run_migrations_online() -> None:
-    engine = make_engine(get_settings().database_url)
+    engine = make_engine(get_settings().active_database_url)  # live → primary, demo → secondary
     with engine.connect() as conn:
         context.configure(connection=conn, target_metadata=target_metadata, render_as_batch=True)
         with context.begin_transaction():
