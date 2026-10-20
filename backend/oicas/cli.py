@@ -62,11 +62,26 @@ def cmd_import_legacy(a):
             print(f"import #{r.id} {r.scope['type']}: {r.stats}")
 
 
+def _cli_gateway(a):
+    """Live CLI use: log in with an ERP account (password prompted, never stored)."""
+    import getpass
+
+    from .odoo.client import gateway_from_settings
+    s = get_settings()
+    if not s.is_live or s.sync_configured:
+        return gateway_from_settings()
+    login = a.login or input("ERP login: ")
+    password = getpass.getpass("ERP password: ")
+    uid = gateway_from_settings().authenticate(login, password)
+    if not uid:
+        raise SystemExit("ERP login failed")
+    return gateway_from_settings(as_user=(uid, password))
+
+
 def cmd_sync(a):
     from .engine.amc import Period
-    from .odoo.client import gateway_from_settings
     from .services import sync
-    gw = gateway_from_settings()
+    gw = _cli_gateway(a)
     with session_scope() as db:
         run = sync.run_inventory_sync(db, gw)
         print(f"inventory sync #{run.id}: {run.status} {run.stats} {run.error or ''}")
@@ -78,9 +93,8 @@ def cmd_sync(a):
     return 0 if run.status == "success" else 1
 
 
-def cmd_probe(_):
-    from .odoo.client import gateway_from_settings
-    gw = gateway_from_settings()
+def cmd_probe(a):
+    gw = _cli_gateway(a)
     print("mode:", gw.mode)
     print("version:", gw.version())
     locs = list(gw.search_read("stock.location", [("usage", "=", "internal")], ["complete_name"]))
@@ -107,8 +121,8 @@ def cmd_worker(_):
     log.info("worker started (%s database); inventory sync every %s min", s.database_role, s.sync_interval_minutes)
     while True:
         if s.is_live and not s.sync_configured:
-            log.warning("live mode: Odoo sync service account not configured (ODOO_SYNC_LOGIN / ODOO_SYNC_API_KEY); "
-                        "skipping scheduled sync")
+            log.info("live mode: Odoo sync runs from the OICAS screen with the user's ERP login; "
+                     "no scheduled sync configured")
             time.sleep(max(1, s.sync_interval_minutes) * 60)
             continue
         try:
@@ -143,8 +157,11 @@ def main(argv=None) -> int:
     s.set_defaults(fn=cmd_import_legacy)
     s = sub.add_parser("sync")
     s.add_argument("--demand", help="YYYY-MM:months, e.g. 2025-09:11")
+    s.add_argument("--login", help="ERP login (live mode; password is prompted)")
     s.set_defaults(fn=cmd_sync)
-    sub.add_parser("odoo-probe").set_defaults(fn=cmd_probe)
+    s = sub.add_parser("odoo-probe")
+    s.add_argument("--login", help="ERP login (live mode; password is prompted)")
+    s.set_defaults(fn=cmd_probe)
     s = sub.add_parser("analyse")
     s.add_argument("batch")
     s.add_argument("start", help="YYYY-MM")

@@ -96,6 +96,10 @@ def login_with_odoo(db: Session, gw: OdooGateway, login: str, password: str, ip:
     db.flush()
     throttle.reset(key)
     token = security.create_session(db, user, ip, user_agent, "odoo")
+    if gw.mode == "live":
+        # Keep the ERP login in memory only, so this user can run syncs with their own Odoo rights.
+        from ..odoo import vault
+        vault.put(security.session_id(token), uid, info["login"], password, get_settings().session_hours * 3600)
     audit.record(db, user, "auth.login", "app_user", user.id, {"method": "odoo", "role": user.role,
                                                                "groups": info.get("groups")}, ip)
     return user, token

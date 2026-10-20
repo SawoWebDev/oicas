@@ -71,13 +71,14 @@ TRANSIENT = (socket.timeout, TimeoutError, ConnectionError, http.client.HTTPExce
 class LiveOdoo:
     mode = "live"
 
-    def __init__(self, url: str, db: str, login: str = "", api_key: str = "", timeout: float = 60,
-                 page_size: int = 1000, max_retries: int = 3):
-        # URL + database are enough for "Login with Odoo"; the service account (login + API key) is
-        # only needed for synchronisation.
+    def __init__(self, url: str, db: str, login: str = "", password: str = "", timeout: float = 60,
+                 page_size: int = 1000, max_retries: int = 3, as_user: tuple[int, str] | None = None):
+        """``as_user`` = (uid, password) of the logged-in ERP user: all reads run with that user's
+        own Odoo access rights. ``login``/``password`` = optional unattended sync account."""
         if not (url and db):
             raise OdooError("Odoo connection is not configured (ODOO_URL, ODOO_DB)")
-        self.url, self.db, self.login, self._key = url.rstrip("/"), db, login, api_key
+        self.url, self.db, self.login, self._key = url.rstrip("/"), db, login, password
+        self._as_user = as_user
         self.page_size, self.max_retries = page_size, max_retries
         transport = _TimeoutSafeTransport(timeout) if self.url.startswith("https") else _TimeoutTransport(timeout)
         self._common = xmlrpc.client.ServerProxy(f"{self.url}/xmlrpc/2/common", transport=transport, allow_none=True)
@@ -106,19 +107,21 @@ class LiveOdoo:
 
     def _service_uid(self) -> int:
         if not (self.login and self._key):
-            raise OdooError("the Odoo sync service account is not configured (ODOO_SYNC_LOGIN, ODOO_SYNC_API_KEY)")
+            raise OdooError("no ERP login available for this sync: run it from OICAS while logged in with your "
+                            "ERP account")
         if self._uid is None:
             uid = self._retry(lambda: self._common.authenticate(self.db, self.login, self._key, {}), "authenticate")
             if not uid:
-                raise OdooError("Odoo rejected the OICAS service account (check ODOO_SYNC_LOGIN / ODOO_SYNC_API_KEY)")
+                raise OdooError("Odoo rejected the configured sync login (ODOO_SYNC_LOGIN / ODOO_SYNC_PASSWORD)")
             self._uid = int(uid)
         return self._uid
 
     def _call(self, model: str, method: str, args: list, kwargs: dict | None = None,
               as_user: tuple[int, str] | None = None):
-        """Read-only model call, as the service account or (``as_user``) as the logged-in user."""
+        """Read-only model call as the logged-in ERP user (or the optional unattended sync login)."""
         assert_read_only(method)
-        uid, secret = as_user if as_user else (self._service_uid(), self._key)
+        who = as_user or self._as_user
+        uid, secret = who if who else (self._service_uid(), self._key)
         return self._retry(lambda: self._object.execute_kw(self.db, uid, secret, model, method, args, kwargs or {}),
                            f"{model}.{method}")
 
@@ -127,15 +130,15 @@ class LiveOdoo:
         return self._retry(lambda: self._common.version(), "version")
 
     def authenticate(self, login: str, password: str) -> int | None:
-        """Validate an end user's Odoo credentials (password or API key). Nothing is stored."""
+        """Validate an end user's ERP login and password with Odoo. Nothing is stored here."""
         uid = self._retry(lambda: self._common.authenticate(self.db, login, password, {}), "user authenticate")
         return int(uid) if uid else None
 
     def user_info(self, uid: int, secret: str | None = None) -> dict:
         """Profile and group XML ids of an Odoo user.
 
-        With ``secret`` (the user's own password/API key just verified by ``authenticate``) the user
-        reads *their own* record, so login works without the sync service account.
+        With ``secret`` (the user's ERP password just verified by ``authenticate``) the user reads
+        *their own* record.
         """
         who = (uid, secret) if secret else None
         if self._groups_field is None:
@@ -171,11 +174,12 @@ class LiveOdoo:
             offset += self.page_size
 
 
-def gateway_from_settings() -> OdooGateway:
+def gateway_from_settings(as_user: tuple[int, str] | None = None) -> OdooGateway:
+    """Gateway for the active mode. ``as_user`` = (uid, password) of the logged-in ERP user."""
     from ..config import get_settings
     from .fake import FakeOdoo
     s = get_settings()
     if s.odoo_mode == "fake":
         return FakeOdoo.from_database()
-    return LiveOdoo(s.odoo_url, s.odoo_db, s.odoo_sync_login, s.odoo_sync_api_key, s.odoo_timeout_seconds,
-                    s.odoo_page_size, s.odoo_max_retries)
+    return LiveOdoo(s.odoo_url, s.odoo_db, s.odoo_sync_login, s.odoo_sync_password, s.odoo_timeout_seconds,
+                    s.odoo_page_size, s.odoo_max_retries, as_user=as_user)

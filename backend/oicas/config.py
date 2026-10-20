@@ -4,7 +4,7 @@ from __future__ import annotations
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import field_validator
+from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -31,8 +31,10 @@ class Settings(BaseSettings):
     odoo_mode: str = "fake"
     odoo_url: str = ""
     odoo_db: str = ""
+    # OPTIONAL unattended account for the scheduled (hourly) sync. Not needed: by default users sync
+    # from the UI with their own ERP login. Accepts the ERP password (ODOO_SYNC_API_KEY kept as alias).
     odoo_sync_login: str = ""
-    odoo_sync_api_key: str = ""
+    odoo_sync_password: str = Field("", validation_alias=AliasChoices("odoo_sync_password", "odoo_sync_api_key"))
     odoo_timeout_seconds: int = 60
     odoo_page_size: int = 1000
     odoo_max_retries: int = 3
@@ -70,7 +72,8 @@ class Settings(BaseSettings):
 
     @property
     def sync_configured(self) -> bool:
-        return bool(self.odoo_url and self.odoo_db and self.odoo_sync_login and self.odoo_sync_api_key)
+        """True only when the optional unattended sync account is set (enables the hourly worker sync)."""
+        return bool(self.odoo_url and self.odoo_db and self.odoo_sync_login and self.odoo_sync_password)
 
     def check_database_separation(self) -> None:
         """Live and demo data must never share a database."""

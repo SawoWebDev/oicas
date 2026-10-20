@@ -26,7 +26,7 @@ For production: `APP_ENV=production`, `ODOO_MODE=live`, `COOKIE_SECURE=true`, an
 
 Switch with `docker compose up -d` after editing `.env`. The containers are recreated and connect to the other database; each database keeps its own users, sessions and history. On start, `web` creates the selected database if it's missing and applies migrations. OICAS refuses to start if both URLs point at the same database. The header shows **LIVE · primary DB** or **DEMO · secondary DB** on every page.
 
-Login with Odoo needs only `ODOO_URL` and `ODOO_DB`: the user's own credentials read their own profile and groups. The scheduled sync also needs `ODOO_SYNC_LOGIN` / `ODOO_SYNC_API_KEY`; until they're set, the worker logs a warning and skips the sync.
+Live mode needs only `ODOO_URL` and `ODOO_DB`. There is no API key and no service account. Users log in with their **ERP login**, and *Sync Odoo now* reads Odoo **as that user**, with their own Odoo access rights. The ERP password is held only in the web server's memory for the length of the session; it's never written to the database or disk, and it's dropped on logout or expiry. After a restart, the sync button asks for the ERP password once. Optionally, `ODOO_SYNC_LOGIN` / `ODOO_SYNC_PASSWORD` enable an unattended hourly sync by the worker; leave them empty to sync from the screen. Keep `web` as a single process: the in-memory credential store isn't shared between processes.
 
 Back up both databases: `pg_dump -U oicas -Fc oicas` and `pg_dump -U oicas -Fc oicas_demo`.
 

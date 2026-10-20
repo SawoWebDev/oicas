@@ -75,6 +75,16 @@ def _hash_token(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
 
+def session_id(token: str) -> str:
+    return _hash_token(token)
+
+
+def _forget_erp(session_ids) -> None:
+    from .odoo import vault
+    for sid in session_ids:
+        vault.drop(sid)
+
+
 def create_session(db: Session, user: User, ip: str | None, user_agent: str | None, method: str) -> str:
     s = get_settings()
     token = secrets.token_urlsafe(32)
@@ -101,6 +111,7 @@ def load_session(db: Session, token: str | None) -> AuthSession | None:
     idle = timedelta(minutes=get_settings().session_idle_minutes)
     if _aware(sess.expires_at) <= now or _aware(sess.last_seen_at) + idle <= now:
         sess.revoked_at = now
+        _forget_erp([sess.id])
         db.flush()
         return None
     if not sess.user.active:
@@ -112,12 +123,14 @@ def load_session(db: Session, token: str | None) -> AuthSession | None:
 
 def revoke_session(db: Session, token: str | None) -> None:
     if token:
+        _forget_erp([_hash_token(token)])
         sess = db.get(AuthSession, _hash_token(token))
         if sess and sess.revoked_at is None:
             sess.revoked_at = datetime.now(timezone.utc)
 
 
 def revoke_user_sessions(db: Session, user_id: int) -> None:
+    _forget_erp(db.scalars(select(AuthSession.id).where(AuthSession.user_id == user_id)))
     db.execute(update(AuthSession).where(AuthSession.user_id == user_id, AuthSession.revoked_at.is_(None))
                .values(revoked_at=datetime.now(timezone.utc)))
 

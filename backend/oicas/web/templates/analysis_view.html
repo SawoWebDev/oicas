@@ -30,6 +30,7 @@
         <div class="col-5"><input class="form-control form-control-sm" type="month" name="start" value="2025-09" required></div>
         <div class="col-3"><input class="form-control form-control-sm" type="number" name="months" value="11" min="1" max="36"></div>
         <div class="col-4"><button class="btn btn-soft btn-sm w-100">Sync demand</button></div>
+        {% if not erp_ready %}<div class="col-12"><input class="form-control form-control-sm" type="password" name="erp_password" placeholder="Your ERP password (asked once per session)" autocomplete="current-password" required></div>{% endif %}
       </form>
       <form method="post" action="/analysis/demand/upload" enctype="multipart/form-data" class="row g-2">
         <input type="hidden" name="csrf" value="{{ csrf }}">

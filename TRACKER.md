@@ -21,7 +21,7 @@ Status legend: ✅ done & tested · 🟡 in progress · 🧪 built, not yet test
 | | Live/demo database separation (primary `oicas` ↔ secondary `oicas_demo`, chosen by ODOO_MODE) | ✅ | config tests; refuses identical URLs |
 | | Reach real Odoo (erp.sawo.com, Odoo 17.0 Enterprise) | ✅ | version check 2026-10-20 |
 | | First live login with a SAWO Odoo account | 🟡 | ready; needs a user to log in |
-| | First live sync | ⛔ | needs ODOO_SYNC_LOGIN / ODOO_SYNC_API_KEY (read-only Odoo user) |
+| | First live sync | 🟡 | ready: a manager presses *Sync Odoo now* with their ERP login (no API key) |
 | 4 Masterlist & data quality | Masterlist, filters, sort, item detail, editable OICAS-owned fields | ✅ | |
 | | DQ detection (sync, import, item scan) and review screen | ✅ | 19 exception kinds |
 | | Legacy workbook migration | ✅ | migration parity: 6,086 items, 34 explained differences |
@@ -50,3 +50,4 @@ Status legend: ✅ done & tested · 🟡 in progress · 🧪 built, not yet test
 | 2026-10-20 | UI | Web app in the General Automation System design (Bootstrap 5, SAWO logo), dashboard, all modules |
 | 2026-10-20 | Deploy | Docker Compose (PostgreSQL, web, worker), `.env.example`, user/admin/Odoo guides |
 | 2026-10-20 | Deploy | Live data → primary DB `oicas`, demo data → secondary DB `oicas_demo` (by ODOO_MODE); Odoo login works without the sync account; worker skips sync until it is configured; moved existing demo data to `oicas_demo` and emptied the primary |
+| 2026-10-20 | Odoo | Removed API key / service-account requirement: sync runs with the logged-in user's ERP login (password in memory only, asked again after restart); optional unattended login for the worker; erp.sawo.com is read-only (whitelist enforced) |

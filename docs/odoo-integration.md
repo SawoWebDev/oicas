@@ -24,16 +24,19 @@ Each successful inventory sync writes an immutable snapshot. When a count sessio
 
 In a complete Odoo snapshot, a product with no quant in a bucket has an Odoo balance of **0**. A code that isn't an Odoo product has **no** balance (`odoo_missing`).
 
-## Setting up the service account
+## Connecting (ERP login, no API key)
 
-1. In Odoo, create an internal user, e.g. `oicas-sync`, with **read** access to Inventory (group *Inventory / User* is sufficient for products, locations, quants and moves; *Manufacturing / User* if moves are restricted).
-2. As that user: *Preferences → Account Security → New API Key*. Put it in `.env` as `ODOO_SYNC_API_KEY`, with `ODOO_SYNC_LOGIN`, `ODOO_URL`, `ODOO_DB` and `ODOO_MODE=live`.
-3. Run `docker compose exec web python -m oicas.cli odoo-probe`. It prints the server version, the internal locations and the number of readable products, and writes nothing.
-4. Run a first sync (*Synchronization History → Sync Odoo now*), map the locations, then sync again.
+1. In `.env` set `ODOO_MODE=live`, `ODOO_URL=https://erp.sawo.com` and `ODOO_DB=sawo`, then run `docker compose up -d`.
+2. Log in to OICAS with your ERP login and password.
+3. As a manager: *Synchronization History → Sync Odoo now*. The sync reads Odoo with **your** ERP login and access rights (Inventory / User or higher can read products, locations and quants; *Manufacturing / User* if MO moves are restricted). After a server restart, the button asks for your ERP password once.
+4. Map the locations (*System Configuration → Odoo locations*), then sync again.
+5. Optional checks from the command line, with the password prompted and never stored: `docker compose exec web python -m oicas.cli odoo-probe --login you@sawo.com`.
+
+`erp.sawo.com` is only ever read: every call passes the read-method whitelist before anything reaches the network.
 
 ## Users and roles
 
-End users log in with their usual Odoo login and password (or a personal API key). The default group → role mapping is editable under *System Configuration → Settings → auth group role map*:
+End users log in with their usual ERP (Odoo) login and password. The default group → role mapping is editable under *System Configuration → Settings → auth group role map*:
 
 | Odoo group | OICAS role |
 |---|---|
@@ -42,10 +45,10 @@ End users log in with their usual Odoo login and password (or a personal API key
 | `stock.group_stock_user` | counter |
 | any other internal user | `auth_default_role` (viewer) |
 
-If the site uses Odoo SSO (OAuth/SAML) without passwords, users can log in with a personal API key instead. Replacing the login with the same identity provider is UD-09.
+If SAWO later switches Odoo to SSO (OAuth/SAML) without passwords, the login has to move to the same identity provider (UD-09).
 
 ## Verification status
 
 * Tested against an in-memory Odoo fixture (`ODOO_MODE=fake`) that implements the same read-only contract.
 * 2026-10-20: `https://erp.sawo.com` (database `sawo`) is reachable from the Docker host and reports **Odoo 17.0 Enterprise** (`server_version 17.0+e-20250901`).
-* Pending: first live login by a SAWO user, and the first live sync (needs the service-account API key).
+* Pending: first live login and first live sync by a SAWO manager (both use the ERP login; no API key needed).

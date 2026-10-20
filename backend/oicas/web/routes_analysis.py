@@ -13,7 +13,6 @@ from sqlalchemy.orm import Session
 from ..engine.amc import Period
 from ..engine.classification import MOVEMENT_CLASSES
 from ..models import AnalysisResult, AnalysisRun, DemandBatch, User
-from ..odoo.client import gateway_from_settings
 from ..services import analysis, exports, importers, reports, sync
 from .common import chart_json, redirect, render, report_page
 from .deps import check_csrf, get_db, require
@@ -122,13 +121,19 @@ async def demand_upload(file: UploadFile = File(...), first_month: str = Form(""
 
 
 @router.post("/analysis/demand/sync", dependencies=[Depends(check_csrf)])
-def demand_sync(start: str = Form(...), months: int = Form(...), db: Session = Depends(get_db),
-                user: User = Depends(require("sync.run"))):
+def demand_sync(request: Request, start: str = Form(...), months: int = Form(...), erp_password: str = Form(""),
+                db: Session = Depends(get_db), user: User = Depends(require("sync.run"))):
+    from ..services.auth import AuthError
+    from .common import NeedErpPassword, erp_gateway
     m = _month(start)
     if m is None or not 1 <= months <= 36:
         return redirect("/analysis/amc", "Enter a start month (YYYY-MM) and 1–36 months.", "danger")
     try:
-        run = sync.run_demand_sync(db, gateway_from_settings(), Period(m, months), user)
+        run = sync.run_demand_sync(db, erp_gateway(request, user, erp_password or None), Period(m, months), user)
+    except NeedErpPassword:
+        return redirect("/analysis/amc", "Enter your ERP password to retrieve demand with your Odoo account.", "warning")
+    except AuthError as e:
+        return redirect("/analysis/amc", str(e), "danger")
     except Exception as e:
         db.rollback()
         return redirect("/analysis/amc", f"Odoo demand sync could not start: {e}", "danger")

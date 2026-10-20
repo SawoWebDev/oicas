@@ -14,7 +14,6 @@ from sqlalchemy.orm import Session
 from .. import security
 from ..engine.reconciliation import BUCKETS
 from ..models import RuleSet, StockLocation, User
-from ..odoo.client import gateway_from_settings
 from ..services import audit, dq, importers, rules, sync
 from .common import redirect, render, report_page
 from .deps import check_csrf, client_ip, get_db, require
@@ -58,10 +57,18 @@ def sync_page(request: Request, db: Session = Depends(get_db), user: User = Depe
 
 
 @router.post("/sync/run", dependencies=[Depends(check_csrf)])
-def sync_run(db: Session = Depends(get_db), user: User = Depends(require("sync.run"))):
+def sync_run(request: Request, erp_password: str = Form(""), db: Session = Depends(get_db),
+             user: User = Depends(require("sync.run"))):
+    from ..services.auth import AuthError
+    from .common import NeedErpPassword, erp_gateway
     try:
-        run = sync.run_inventory_sync(db, gateway_from_settings(), user)
-    except Exception as e:  # configuration errors (e.g. missing ODOO_* settings)
+        gw = erp_gateway(request, user, erp_password or None)
+        run = sync.run_inventory_sync(db, gw, user)
+    except NeedErpPassword:
+        return redirect("/sync", "Enter your ERP password to sync with your Odoo account.", "warning")
+    except AuthError as e:
+        return redirect("/sync", str(e), "danger")
+    except Exception as e:  # configuration errors (e.g. missing ODOO_URL)
         db.rollback()
         return redirect("/sync", f"Sync could not start: {e}", "danger")
     db.commit()

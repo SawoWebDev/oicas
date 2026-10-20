@@ -159,7 +159,7 @@ def base_context(request: Request, db: Session | None) -> dict:
     ctx = {"request": request, "user": user, "csrf": sess.csrf_token if sess else "", "nav": NAV,
            "can": (lambda p: security.has_permission(user, p)), "flash_msg": msg, "fmt": fmt, "pill": pill, "cell": cell,
            "query": lambda **kw: query(request, **kw), "version": __version__, "settings": get_settings(),
-           "today": date.today(), "humanize": humanize}
+           "today": date.today(), "humanize": humanize, "erp_ready": erp_ready(request) if user else False}
     if db is not None and user is not None:
         ctx["sync_state"] = sync.staleness(db, sync.latest_snapshot(db))
         ctx["dq_open"] = sum(dq.open_counts(db).values())
@@ -196,6 +196,52 @@ def report_page(request: Request, db: Session, key: str, active: str, kicker: st
     export_q = urlencode(params)
     return render(request, db, template, active=active, kicker=kicker, title=title or rdef.title, res=res, rdef=rdef,
                   pg=pg, filters=filters, params=params, export_q=export_q, **(extra or {}))
+
+
+class NeedErpPassword(Exception):
+    """Live mode, and this session holds no ERP credentials (e.g. after a server restart)."""
+
+
+def erp_ready(request: Request) -> bool:
+    """Can this session talk to Odoo without asking for the ERP password?"""
+    from ..odoo import vault
+    s = get_settings()
+    if not s.is_live or s.sync_configured:
+        return True
+    sess = getattr(request.state, "auth", None)
+    return bool(sess and vault.get(sess.id))
+
+
+def erp_gateway(request: Request, user, password: str | None = None):
+    """Odoo gateway acting as the logged-in user's ERP account (live) or the demo fixture (fake).
+
+    No API key or service account: the user's own ERP login is used, with their Odoo access rights.
+    If the in-memory credentials are gone, ``password`` (asked on screen) is verified with Odoo first.
+    """
+    from ..odoo import vault
+    from ..odoo.client import gateway_from_settings
+    from ..services import auth
+    s = get_settings()
+    if not s.is_live:
+        return gateway_from_settings()
+    sess = request.state.auth
+    creds = vault.get(sess.id)
+    if creds is None and password:
+        key = (user.login.lower(), "erp-reauth")
+        if auth.throttle.blocked(key):
+            raise auth.AuthError("Too many wrong ERP passwords. Try again in 15 minutes.")
+        uid = gateway_from_settings().authenticate(user.login, password)
+        if not uid or (user.odoo_uid and uid != user.odoo_uid):
+            auth.throttle.fail(key)
+            raise auth.AuthError("ERP password is incorrect.")
+        auth.throttle.reset(key)
+        vault.put(sess.id, uid, user.login, password, s.session_hours * 3600)
+        creds = vault.get(sess.id)
+    if creds is None:
+        if s.sync_configured:
+            return gateway_from_settings()  # optional unattended account
+        raise NeedErpPassword()
+    return gateway_from_settings(as_user=(creds.uid, creds.secret))
 
 
 def form_params(request: Request, names) -> dict:
