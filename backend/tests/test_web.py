@@ -172,6 +172,28 @@ def test_import_center_template_and_dry_run(client):
     assert client.get("/imports").status_code == 403
 
 
+def test_help_center_and_context_help(client):
+    from oicas.web.routes_help import TOPICS
+    client.cookies.clear()
+    login_page = client.get("/login").text
+    assert 'id="help-fab"' in login_page and 'data-help="login"' in login_page
+    assert client.get("/help/topic/login").status_code == 200  # readable before signing in
+    login(client, "viewer")
+    center = client.get("/help")
+    assert center.status_code == 200
+    for key, *_ in TOPICS:
+        assert f'id="help-{key}"' in center.text, key
+        r = client.get(f"/help/topic/{key}")
+        assert r.status_code == 200 and f'id="help-{key}"' in r.text, key
+    # every page carries a help topic that exists (F1 opens the help of the page you're on)
+    keys = {k for k, *_ in TOPICS}
+    for url in ("/", "/masterlist", "/planning", "/history", "/reconciliation", "/analysis/amc", "/analysis/abc",
+                "/analysis/movement", "/reports", "/data-quality", "/sync"):
+        topic = re.search(r'data-help="([^"]+)"', client.get(url).text).group(1)
+        assert topic in keys, (url, topic)
+    assert "F1" in client.get("/static/js/app.js").text
+
+
 def test_logout_revokes_session(client):
     login(client, "admin")
     token = csrf(client)

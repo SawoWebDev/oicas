@@ -1,0 +1,36 @@
+<p class="help-lead">Record what was physically counted. A <b>count session</b> is one counter on one date. It contains <b>entries</b>, and each entry is one counted figure for one item at one location.</p>
+<h3>Session life cycle</h3>
+<p>{{ pill('draft') }} → {{ pill('submitted') }} → {{ pill('finalized') }} (or {{ pill('cancelled') }})</p>
+<table class="table table-sm table-bordered"><tbody>
+  <tr><th style="width:22%">Draft</th><td>The counter adds and removes entries freely.</td></tr>
+  <tr><th>Submitted</th><td>Entries are locked. They can only be <b>corrected</b> by a manager, who gives a new quantity and a reason; the original stays in history.</td></tr>
+  <tr><th>Finalized</th><td>A manager finalizes. OICAS compares the counts with the latest Odoo snapshot (or book balance) and creates the reconciliation results.</td></tr>
+  <tr><th>Cancelled</th><td>Draft or submitted sessions can be cancelled with a reason.</td></tr>
+</tbody></table>
+<h3>Option A — enter counts on screen</h3>
+<ol class="help-steps">
+  <li><span class="ui">Physical Counting → Start a count session</span>: count date (not in the future), counted by, optional plan, remarks → <span class="ui">Start session</span>.</li>
+  <li>For each figure: type the <b>RM code</b> (suggestions appear after 2 letters), choose <b>Location</b> (Warehouse / Production), <b>Slot</b> (1–4 = WH-1…4 or PROD-1…4), <b>Round</b>, <b>Quantity</b> and optional remarks → <span class="ui">Add</span>.</li>
+  <li>Check the list, then <span class="ui">Submit</span>.</li>
+  <li>Manager: <span class="ui">Finalize &amp; reconcile</span>. The results appear under <i>Reconciliation results</i>, each with a <span class="ui">Review</span> button.</li>
+</ol>
+<h3>Option B — upload a filled count sheet</h3>
+<ol class="help-steps">
+  <li>Download the sheet from the plan (<span class="ui">Count sheet (Excel)</span>). Fill B2 = count date, B3 = counted by, and the quantities per column.</li>
+  <li><span class="ui">Physical Counting → Upload a filled count sheet</span> → <span class="ui">Upload as draft</span>. Errors (unknown code, text in a quantity, negative number) are listed and nothing is saved.</li>
+  <li>Review the draft, then Submit and Finalize as above.</li>
+</ol>
+<p>For many dates or counters in one file, use <a href="#help-imports" data-help-topic="imports">Data Import → Count lines</a>.</p>
+<h3>Rules to remember</h3>
+<ul>
+  <li><b>Blank = not counted. Enter 0 only if you counted and found nothing.</b></li>
+  <li>Several entries for the same item, location and date are <b>added together</b> (e.g. WH-1 = 60 and WH-2 = 40 → warehouse total 100), just like COUNTED LIST.</li>
+  <li>Pressing a button twice doesn't create duplicates.</li>
+  <li>If the Odoo data is older than allowed (default 24 h), finalizing asks you to tick <i>finalize against stale Odoo data</i>. It's better to <b>Sync Odoo now</b> first.</li>
+</ul>
+<div class="help-example"><div class="lbl">Example</div>
+  Session #36, 2026-10-20, Christine A: 8RM04-341-1 Warehouse slot 1 = <b>220.4</b>; 1SH03-001 Warehouse slot 1 = <b>2,400</b> → Submit → manager Finalize against Odoo snapshot #41 →
+  8RM04-341-1: 220.4 vs 220.4 → {{ pill('accurate') }}; 1SH03-001: 2,400 vs 2,403 → variance <b>−3</b> {{ pill('discrepancy') }}.
+</div>
+<h3>Correcting a submitted count</h3>
+<p>On the session page (manager): type the new qty and the <b>reason</b> on the entry's row → <span class="ui">Correct</span>. The old entry is struck through, the new one is added, and if the session was already finalized, the reconciliation is recalculated.</p>

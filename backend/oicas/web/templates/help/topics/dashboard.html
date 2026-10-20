@@ -1,0 +1,28 @@
+<p class="help-lead">The dashboard is the management overview (the old PROGRESS-overall and PROGRESS-weekly sheets). Every figure is calculated live from count records, and you can click any tile to see the items behind it.</p>
+<h3>What's on the screen</h3>
+<table class="table table-sm table-bordered">
+  <tbody>
+    <tr><th style="width:30%">Filters</th><td><b>Material section</b>, <b>ABC family</b>, <b>Plant location</b> limit every figure on the page. The note on the right shows which approved analysis run gives the classification.</td></tr>
+    <tr><th>Total active items</th><td>Items in the masterlist (tracked) after the filters.</td></tr>
+    <tr><th>Items counted</th><td>Items with at least one finalized count, plus the <b>completion %</b> (counted ÷ items).</td></tr>
+    <tr><th>Items remaining</th><td>Not counted yet.</td></tr>
+    <tr><th>Inventory accuracy</th><td>Counted items whose latest count matched Odoo ÷ counted items that could be compared with Odoo.</td></tr>
+    <tr><th>Items with discrepancy</th><td>Latest count differs from Odoo, and the % of counted items.</td></tr>
+    <tr><th>Overdue counts</th><td>Overdue or due today, plus how many are due in the next 7 days.</td></tr>
+    <tr><th>Overall progress by movement class</th><td>The PROGRESS-overall table: # of items, # counted, # of discrepancy, counted with no Odoo balance, count completion, inventory accuracy, overall accuracy and discrepancy rate for Fast / Medium / Slow / Non Moving and the total. Click a class name to open those items.</td></tr>
+    <tr><th>Completion &amp; accuracy chart</th><td>The same KPIs as bars and lines per class.</td></tr>
+    <tr><th>Weekly progress</th><td>Last 8 weeks (Monday–Sunday): items counted, discrepancies and accuracy %. Full table in report 7.</td></tr>
+    <tr><th>ABC category distribution</th><td>How many items are in each category (AA … CC).</td></tr>
+    <tr><th>Progress by plant location</th><td>Items, counted and a completion bar per plant (1, 2, 3, 4, 1 &amp; 3 …).</td></tr>
+    <tr><th>Counts by person (30 days)</th><td>Finalized item counts per counter.</td></tr>
+    <tr><th>Odoo sync &amp; data quality</th><td>Latest snapshot (current or stale), last sync, and the most common open data-quality issues.</td></tr>
+    <tr><th>Recent activity</th><td>The latest actions (counts, finalizations, imports…).</td></tr>
+  </tbody>
+</table>
+<h3>Buttons</h3>
+<p><span class="ui">Plan counts</span> opens planning filtered to overdue items. <span class="ui">New Count</span> opens Physical Counting.</p>
+<div class="help-example"><div class="lbl">Example</div>
+  Fast Moving: 821 items, 488 counted → completion 488 ÷ 821 = <b>59.44 %</b>. Of those, 78 had no Odoo balance to compare, so 410 could be verified and 353 differed:
+  accuracy = (410 − 353) ÷ 410 = <b>13.90 %</b>; discrepancy rate = 353 ÷ 410 = <b>86.10 %</b>.
+</div>
+<p>All formulas: <a href="#help-formulas" data-help-topic="formulas">Formulas &amp; KPI definitions</a>.</p>

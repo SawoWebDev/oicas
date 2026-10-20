@@ -58,6 +58,44 @@
     document.addEventListener("click", function (e) { if (!list.contains(e.target) && e.target !== input) list.classList.add("d-none"); });
   });
 
+  // ---------------------------------------------------------------- Help (F1 / ? button)
+  var helpPanel = document.getElementById("help-panel");
+  var helpBody = document.getElementById("help-body");
+  function openHelp(topic) {
+    if (!helpPanel || !window.bootstrap) return;
+    topic = topic || document.body.getAttribute("data-help") || "overview";
+    helpBody.innerHTML = '<div class="muted small">Loading…</div>';
+    fetch("/help/topic/" + encodeURIComponent(topic), { credentials: "same-origin" })
+      .then(function (r) { return r.ok ? r.text() : fetch("/help/topic/login").then(function (x) { return x.text(); }); })
+      .then(function (html) {
+        helpBody.innerHTML = html;
+        helpBody.scrollTop = 0;
+        var center = document.getElementById("help-open-center");
+        if (center) center.setAttribute("href", "/help#help-" + topic);
+      })
+      .catch(function () { helpBody.innerHTML = '<div class="text-danger small">Help could not be loaded.</div>'; });
+    bootstrap.Offcanvas.getOrCreateInstance(helpPanel).show();
+  }
+  var fab = document.getElementById("help-fab");
+  if (fab) fab.addEventListener("click", function () { openHelp(); });
+  if (helpBody) helpBody.addEventListener("click", function (e) {
+    var a = e.target.closest("[data-help-topic]");
+    if (a) { e.preventDefault(); openHelp(a.getAttribute("data-help-topic")); }
+  });
+  var typing = function (el) { return el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)); };
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "F1") { e.preventDefault(); openHelp(); return; }
+    if (e.key === "?" && !typing(document.activeElement) && !e.ctrlKey && !e.metaKey) { e.preventDefault(); openHelp(); }
+  });
+  window.addEventListener("help", function (e) { e.preventDefault && e.preventDefault(); openHelp(); });  // legacy IE/Edge F1
+  var jump = document.getElementById("help-jump");
+  if (jump) jump.addEventListener("change", function () { location.hash = jump.value; });
+  // Help Center page: highlight anchor
+  if (location.pathname === "/help" && location.hash) {
+    var t = document.querySelector(location.hash);
+    if (t) t.scrollIntoView();
+  }
+
   // Charts: <canvas data-chart="kind" data-source="json-script-id" data-key="...">
   if (window.Chart) {
     Chart.defaults.font.family = "Inter, system-ui, sans-serif";

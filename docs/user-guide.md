@@ -1,5 +1,7 @@
 # OICAS User Guide
 
+> **In the app:** press **F1** (or the red **?** button, bottom right) on any page for help about that page. The **Help Center** (sidebar) has the full guide: workflow, data relationships, every module with examples, imports, Odoo loading, formulas, roles, glossary and FAQ.
+
 Written for inventory counters, inventory controllers/managers and management viewers.
 
 ## Signing in

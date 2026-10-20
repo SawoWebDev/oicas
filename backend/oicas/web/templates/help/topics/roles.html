@@ -1,0 +1,18 @@
+<p class="help-lead">Your role decides which menus and buttons you see. It comes from your Odoo groups when you log in; an administrator can override and lock it.</p>
+<table class="table table-sm table-bordered">
+  <thead><tr><th>Can…</th><th>Viewer</th><th>Counter</th><th>Manager</th><th>Admin</th></tr></thead>
+  <tbody>
+    <tr><td>See dashboard, masterlist, analyses, reports; export Excel/PDF; Help</td><td>✔</td><td>✔</td><td>✔</td><td>✔</td></tr>
+    <tr><td>Start count sessions, enter or upload counts, submit, cancel own drafts</td><td></td><td>✔</td><td>✔</td><td>✔</td></tr>
+    <tr><td>Finalize sessions, correct submitted entries, start recounts</td><td></td><td></td><td>✔</td><td>✔</td></tr>
+    <tr><td>Create and assign count plans</td><td></td><td></td><td>✔</td><td>✔</td></tr>
+    <tr><td>Review, recount and resolve discrepancies</td><td></td><td></td><td>✔</td><td>✔</td></tr>
+    <tr><td>Sync Odoo, sync demand, run and approve analyses</td><td></td><td></td><td>✔</td><td>✔</td></tr>
+    <tr><td>Data Import, edit item attributes, change item code, resolve data-quality issues</td><td></td><td></td><td>✔</td><td>✔</td></tr>
+    <tr><td>Audit Trail</td><td></td><td></td><td>✔</td><td>✔</td></tr>
+    <tr><td>System Configuration: rule sets, settings, locations, users, legacy migration</td><td></td><td></td><td></td><td>✔</td></tr>
+  </tbody>
+</table>
+<h3>Odoo group → role (default)</h3>
+<p><span class="mono">base.group_system</span> (Settings) → admin · <span class="mono">stock.group_stock_manager</span> (Inventory / Administrator) → manager · <span class="mono">stock.group_stock_user</span> (Inventory / User) → counter · any other internal user → viewer. Portal users can't log in.</p>
+<p>If you open a page you're not allowed to use, you'll see "You don't have access to this page" with the permission it needs.</p>

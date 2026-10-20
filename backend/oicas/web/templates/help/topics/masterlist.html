@@ -1,0 +1,40 @@
+<p class="help-lead">One row per item, with everything about it joined together: classification, AMC, count interval, latest count, Odoo balance, discrepancy and next count. It replaces the Excel <i>Master</i> sheet and updates itself; nothing needs copying.</p>
+<h3>Columns</h3>
+<table class="table table-sm table-bordered">
+  <thead><tr><th>Column</th><th>Meaning</th><th>Comes from</th></tr></thead>
+  <tbody>
+    <tr><td>RM Code / Description / UoM</td><td>Item identity and unit</td><td>Odoo (or Data Import for items not in Odoo)</td></tr>
+    <tr><td>Action</td><td>CLOSE CONTROL / REGULAR REVIEW / INFREQUENT REVIEW</td><td>Approved analysis run</td></tr>
+    <tr><td>Classification</td><td>Fast / Medium / Slow / Non Moving</td><td>Approved analysis run</td></tr>
+    <tr><td>Category</td><td>ABC quantity class + frequency class (e.g. AB)</td><td>Approved analysis run</td></tr>
+    <tr><td>AMC</td><td>Average monthly consumption</td><td>Approved analysis run</td></tr>
+    <tr><td>Material Section · ABC Family · Plant Location · Remark</td><td>OICAS-owned attributes</td><td>Item page / Data Import</td></tr>
+    <tr><td>Interval (days)</td><td>How often the item must be counted: 30 / 90 / 180</td><td>Category → classification matrix</td></tr>
+    <tr><td>Counted Date</td><td>Date of the latest finalized count</td><td>Latest reconciliation</td></tr>
+    <tr><td>Next Count / Schedule</td><td>Counted date + interval; status overdue / due today / upcoming / scheduled / unscheduled</td><td>Schedule</td></tr>
+    <tr><td>Actual Count (WH) / (PROD)</td><td>Sum of that day's counted quantities per location</td><td>Count entries</td></tr>
+    <tr><td>Stock in Months</td><td>(WH + PROD counted) ÷ AMC</td><td>Calculated</td></tr>
+    <tr><td>Odoo WH / Odoo Pre-Prod</td><td>System balance at the time of the count</td><td>Odoo snapshot (or book balance)</td></tr>
+    <tr><td>Discrepancy (WH) / (PROD)</td><td>Physical − Odoo. Red = short (negative)</td><td>Reconciliation</td></tr>
+    <tr><td>Reconciliation / Review</td><td>accurate · discrepancy · odoo missing · not counted / open · investigating · recount requested · resolved</td><td>Reconciliation</td></tr>
+  </tbody>
+</table>
+<h3>How to use it</h3>
+<ul>
+  <li>Filter by search, movement class, action, section, family, plant, schedule, <b>Counted</b> (yes/no) and <b>Discrepancy</b> (yes/no), then <span class="ui">Apply</span>.</li>
+  <li>Click a header to sort. <span class="ui">Excel</span>/<span class="ui">PDF</span> export the filtered list.</li>
+  <li>Click an <b>RM code</b> to open the <b>item page</b>.</li>
+</ul>
+<h3>Item page</h3>
+<ul>
+  <li><b>Item</b>: Odoo product id, UoM, last Odoo sync, section, family, plant, remark (JIT badge).</li>
+  <li><b>Classification &amp; schedule</b>: class, action, category, AMC, months with demand, interval, last and next count, stock in months, and the analysis run it comes from.</li>
+  <li><b>Latest reconciliation</b>: physical vs Odoo per location, with an <span class="ui">Open</span> button for the review.</li>
+  <li><b>Edit OICAS-owned attributes</b> (managers): material section, ABC family, plant location, remark, JIT, tracked. Odoo-owned fields (code, description, UoM) can only be changed in Odoo.</li>
+  <li><b>Change item code</b> (managers): use it when an item imported without an Odoo code (e.g. NC-00001) is encoded in Odoo. All history moves to the new code.</li>
+  <li><b>Demand &amp; ABC basis</b>: demand per month, total, rank, cumulative %, frequency % and class per family. “–” = no demand recorded that month.</li>
+  <li><b>Count entries</b> and <b>Reconciliation history</b>: every count ever made, with corrections struck through.</li>
+</ul>
+<div class="help-example"><div class="lbl">Example</div>
+  <b>10RM01-018 Isopropyl Alcohol</b>: classification <i>Non Moving</i>, never counted → Counted Date “–”, Actual Count “–”, Stock in Months “–” (not 0), Next Count = today (due), because never-counted items are due now.
+</div>

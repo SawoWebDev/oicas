@@ -1,0 +1,22 @@
+<p class="help-lead">ABC ranks items <b>within their family</b> (RAW MAT, BOX, Metal Stamping, Pre-Assy, Stone, T&amp;D, PIM, Control Unit, Wood, SF Wood, Excluded list) twice: by <b>quantity</b> of demand and by <b>frequency</b> of demand. The two letters together make the <b>category</b>.</p>
+<h3>Step by step</h3>
+<ol class="help-steps">
+  <li><b>Total demand</b> per item = sum of the months in the period.</li>
+  <li><b>Rank</b> items in the family from the highest total to the lowest (ties by code).</li>
+  <li><b>Demand %</b> = item total ÷ family total. <b>Cumulative %</b> = running sum of demand % down the ranking, including the item itself.</li>
+  <li><b>Quantity class</b>: <b>A</b> if cumulative &lt; 80 % · <b>C</b> if cumulative ≥ 95 % · otherwise <b>B</b>.</li>
+  <li><b>Frequency</b> = number of months with recorded demand; <b>frequency %</b> = frequency ÷ months in the period.</li>
+  <li><b>Frequency class</b>: <b>A</b> if &gt; 80 % · <b>C</b> if ≤ 50 % · otherwise <b>B</b>.</li>
+  <li><b>Category</b> = quantity class + frequency class (e.g. A + B = <b>AB</b>).</li>
+  <li>The category gives the action, classification and interval (see <a href="#help-movement" data-help-topic="movement">Movement Classification</a>). An item with no demand in any month is always <b>Non Moving</b>.</li>
+</ol>
+<div class="help-example"><div class="lbl">Example</div>
+  8RM04-341-1 in RAW MAT: cumulative % lands under 80 % → quantity <b>A</b>; demand in 6 of 11 months = 54.55 % → frequency <b>B</b> (between 50 % and 80 %) → category <b>AB</b> → CLOSE CONTROL, Fast Moving, every 30 days.
+</div>
+<h3>On the screen</h3>
+<ul>
+  <li><b>Category distribution</b> chart for the selected run.</li>
+  <li><b>Method</b> box summarising the rules above.</li>
+  <li><b>ABC report</b>: family, rank, code, total, demand %, cumulative % of items, cumulative % of demand, frequency, frequency %, quantity class, frequency class, category, declared type (MTS / MTO), action, classification. Filter by run, family, class or code.</li>
+</ul>
+<div class="help-note">Thresholds (80 / 95 / 80 / 50 %) are set in the <b>rule set</b> (System Configuration → Rule sets). A change creates a new version, and old runs keep their original version.</div>

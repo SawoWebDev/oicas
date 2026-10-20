@@ -1,0 +1,23 @@
+<h3>Login</h3>
+<p><b>"Invalid Odoo login or password"</b>: use exactly what you use on erp.sawo.com. After 5 wrong tries, wait 15 minutes.<br>
+<b>"Odoo is unreachable"</b>: erp.sawo.com can't be reached from the OICAS server. Try again later or tell IT.<br>
+<b>"Your Odoo groups don't grant access"</b>: ask an administrator to give you a role in System Configuration → Users.</p>
+<h3>Counting</h3>
+<p><b>I typed a wrong quantity.</b> Draft: <span class="ui">Remove</span> and add it again. Submitted: ask a manager to <span class="ui">Correct</span> it with a reason.<br>
+<b>"Unknown item code"</b>: check for typos. If the item isn't in Odoo, a manager adds it in Data Import → Items.<br>
+<b>Finalize asks about stale Odoo data</b>: press Sync Odoo now first, or tick the box if you knowingly accept older data.<br>
+<b>Production shows “–”</b>: production wasn't counted, so it isn't compared. Enter 0 only if you counted and found nothing.</p>
+<h3>Numbers look different from the old Excel</h3>
+<ul>
+  <li>Excel counted duplicate masterlist rows; OICAS counts each item once.</li>
+  <li>Excel treated an uncounted location or a blank Odoo value as 0, which created false discrepancies. OICAS doesn't (adjustable in the rule set).</li>
+  <li>The RM sheet in Excel had a formula error (total only up to row 678) and wasn't sorted; OICAS ranks correctly.</li>
+</ul>
+<h3>Odoo &amp; imports</h3>
+<p><b>Sync asks for my password</b>: the server was restarted since you logged in. Enter your ERP password once.<br>
+<b>An Odoo location's stock is missing</b>: map the location (System Configuration → Odoo locations) and sync again.<br>
+<b>Import rejected</b>: open the result. Every error has a row number; fix the rows and upload again. Nothing was saved.<br>
+<b>Item now has an Odoo code</b>: item page → Change item code.</p>
+<h3>Other</h3>
+<p><b>Can OICAS change stock in Odoo?</b> No. It's read-only by design.<br>
+<b>Is anything ever deleted?</b> No. Counts, corrections, snapshots, analysis runs and settings keep their history.</p>

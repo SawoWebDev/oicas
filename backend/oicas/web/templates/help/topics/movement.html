@@ -1,0 +1,16 @@
+<p class="help-lead">The <b>classification matrix</b> (the old CLASS sheet) turns each ABC category into an action, a movement classification and a count interval.</p>
+<table class="table table-sm table-bordered">
+  <thead><tr><th>Category</th><th>Declared type</th><th>Action</th><th>Classification</th><th>Count every</th></tr></thead>
+  <tbody>
+    <tr><td>AA, AB, BA</td><td>MTS</td><td>{{ pill('CLOSE CONTROL') }}</td><td>{{ pill('Fast Moving') }}</td><td>30 days</td></tr>
+    <tr><td>BB, CA, AC</td><td>MTS</td><td>{{ pill('REGULAR REVIEW') }}</td><td>{{ pill('Medium Moving') }}</td><td>90 days</td></tr>
+    <tr><td>BC, CB, CC</td><td>MTO</td><td>{{ pill('INFREQUENT REVIEW') }}</td><td>{{ pill('Slow Moving') }}</td><td>180 days</td></tr>
+    <tr><td>any, with no demand in any month</td><td>(from category)</td><td>(from category)</td><td>{{ pill('Non Moving') }}</td><td>(from category)</td></tr>
+  </tbody>
+</table>
+<p><b>MTS</b> = make to stock, <b>MTO</b> = make to order. The matrix can be changed (with a new rule-set version) in System Configuration.</p>
+<h3>On the screen</h3>
+<p>Counts per class, then a list grouped Fast → Medium → Slow → Non Moving: code, description, category, months with demand, total demand, AMC, action, interval, <b>priority</b> (1 = close control … 3 = infrequent), next count and schedule status. Filters: class, section, family, plant.</p>
+<div class="help-example"><div class="lbl">Example</div>
+  10RM12-079 has no demand in Sep–Jul but category AC → classification <b>Non Moving</b> (no demand overrides the class), action REGULAR REVIEW, interval 90 days.
+</div>

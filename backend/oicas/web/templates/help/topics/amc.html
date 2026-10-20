@@ -1,0 +1,20 @@
+<p class="help-lead"><b>AMC (Average Monthly Consumption)</b> is how much of an item is used per month. Together with ABC it decides each item's classification and count interval. All of this is produced by an <b>analysis run</b>.</p>
+<h3>AMC formula</h3>
+<p><b>AMC = total demand of the months with recorded demand ÷ number of those months</b> (the same as the Excel <span class="mono">AVERAGE()</span> of the month columns). A month with no demand record is left out; a recorded 0 counts.</p>
+<div class="help-example"><div class="lbl">Example</div>
+  8RM04-341-1, Sep 2025 – Jul 2026: demand in Oct 24.64, Dec 120.96, Feb 20, Apr 0, May 192.64, Jul 387.46 (6 recorded months, total 745.7) → AMC = 745.7 ÷ 6 = <b>124.28</b>.
+  (The alternative method, total ÷ 11 months = 67.79, can be selected in the rule set.)
+</div>
+<p><b>Stock in months</b> = counted quantity (WH + PROD) ÷ AMC. Example: 214.882 ÷ 124.28 = <b>1.73 months</b>. It's blank if the item isn't counted or the AMC is 0.</p>
+<h3>Analysis runs: calculate → review → approve</h3>
+<ol class="help-steps">
+  <li><b>Get demand</b>: <span class="ui">Sync demand</span> reads manufacturing-order component demand from Odoo for a period, using your ERP login. Alternatively, upload an Excel export (here or in Data Import). Each load becomes a <b>demand batch</b>.</li>
+  <li><b>Calculate</b>: choose the demand batch, first month and number of months (e.g. 2025-09, 11) → <span class="ui">Calculate draft run</span>.</li>
+  <li><b>Review</b>: the run page lists every item whose category, classification, action, interval or AMC changed compared with the approved run.</li>
+  <li><b>Approve</b> (manager): the masterlist, schedule and dashboard switch to the new run. The old run is kept as <i>superseded</i>. <span class="ui">Reject</span> discards a draft.</li>
+</ol>
+<h3>Analysis runs table</h3>
+<p>Run #, period, source (<i>engine</i> = calculated by OICAS; <i>legacy import</i> = values taken from the old Excel), rule set version, status ({{ pill('draft') }} {{ pill('approved') }} {{ pill('superseded') }} {{ pill('rejected') }}) and <span class="ui">Detail</span>.</p>
+<h3>AMC report (below)</h3>
+<p>Per item: demand per month, total, months with demand, AMC, latest physical quantity, stock in months and classification. Filter by run, family, class or code.</p>
+<div class="help-note">Only an <b>approved</b> run is used by the rest of the system. Drafts never change the masterlist.</div>

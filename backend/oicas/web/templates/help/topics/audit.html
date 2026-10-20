@@ -1,0 +1,8 @@
+<p class="help-lead">Every important action is recorded: who did it, when, from which computer (IP), and what changed (before and after). Managers and admins can view it.</p>
+<h3>What's recorded</h3>
+<p>Logins, logouts and failed logins · count sessions created, submitted, finalized or cancelled · entries added, removed or corrected (with reason) · reviews, recount requests and resolutions · plans and assignments · item attribute changes and code changes · syncs and imports · analysis runs, approvals and rejections · rule-set versions, settings, location mappings, user roles · report exports · data-quality status changes.</p>
+<h3>Filters</h3>
+<p>From / To (default: last 30 days), action contains (e.g. <span class="mono">count.entry.correct</span>, <span class="mono">import</span>, <span class="mono">auth</span>), user login, and entity. Up to 5,000 events are shown; export to Excel for more analysis.</p>
+<div class="help-example"><div class="lbl">Example</div>
+  "Why did 1SH03-001 change on Tuesday?" → Action contains <span class="mono">correct</span> → the row shows <i>manager · count.entry.correct · before=2400, after=2403, reason="recounted bin 3"</i>.
+</div>

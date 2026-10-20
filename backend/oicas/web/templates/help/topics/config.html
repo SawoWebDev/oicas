@@ -1,0 +1,22 @@
+<p class="help-lead">Administrator settings, in five tabs. Every change is validated and recorded in the Audit Trail.</p>
+<h3>Rule sets</h3>
+<p>The calculation rules, versioned. Saving creates a <b>new version</b> with an <i>effective from</i> date and never edits an old one, so past results stay reproducible.</p>
+<table class="table table-sm table-bordered"><tbody>
+  <tr><th style="width:36%">ABC thresholds</th><td>Qty A if cumulative &lt; 80 %, C if ≥ 95 %; Freq A if &gt; 80 %, C if ≤ 50 %</td></tr>
+  <tr><th>ABC ordering</th><td>Rank by total demand (normal), or keep input order (only for replaying the old Excel)</td></tr>
+  <tr><th>AMC method</th><td>Average of months with demand (as Excel), or total ÷ months in period</td></tr>
+  <tr><th>Abs. tolerance</th><td>A variance at or below this quantity counts as accurate (default 0)</td></tr>
+  <tr><th>Uncounted location</th><td>Not counted (no variance), or treat as 0 (the old Excel behaviour)</td></tr>
+  <tr><th>Missing Odoo balance</th><td>Missing (no variance), or treat as 0 (the old Excel behaviour)</td></tr>
+  <tr><th>Never-counted items</th><td>Due now, or unscheduled</td></tr>
+  <tr><th>Upcoming window</th><td>Days ahead counted as "upcoming" (default 7)</td></tr>
+  <tr><th>Classification matrix</th><td>Category → declared type, action, classification, interval days (the CLASS sheet)</td></tr>
+</tbody></table>
+<h3>Odoo locations</h3>
+<p>Map each internal Odoo location to <b>WAREHOUSE</b> (compared with "Odoo WH"), <b>PRODUCTION</b> (compared with "Odoo Pre-Prod") or <b>IGNORE</b>. Unmapped locations are excluded and flagged. A change applies from the next sync.</p>
+<h3>Settings</h3>
+<p>Lists (material sections, ABC families, plant locations, count slots), the Odoo-group → role map, the default role, the staleness limit in hours, whether cancelled MO moves count as demand, and snapshot retention days.</p>
+<h3>Users &amp; roles</h3>
+<p>Users appear after their first login. Change the role, <b>lock</b> it (so Odoo groups don't override it) or deactivate a user (this signs them out). <i>Active sessions</i> shows who is signed in, with <span class="ui">Revoke all</span>.</p>
+<h3>Imports</h3>
+<p>The one-time <b>legacy workbook migration</b> (each file can be imported only once), a link to Data Import, and the import history.</p>

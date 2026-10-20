@@ -1,0 +1,13 @@
+<section class="help-topic" id="help-{{ key }}">
+  <h2>{{ title }}</h2>
+  {% include "help/topics/" ~ key ~ ".html" %}
+</section>
+{% if related %}
+<hr>
+<div class="small fw-semibold mb-2">Related topics</div>
+<div class="help-related">{% for r in related %}<a class="btn btn-soft btn-xs" href="/help#help-{{ r }}" data-help-topic="{{ r }}">{{ titles.get(r, r) }}</a>{% endfor %}</div>
+{% endif %}
+{% if not public %}
+<hr>
+<div class="small-note">Press <span class="kbd">F1</span> anywhere to open help for that page · <a href="/help#help-{{ key }}">Open this topic in the Help Center</a> · <a href="#" data-help-topic="overview">Overview</a> · <a href="#" data-help-topic="workflow">Workflow</a></div>
+{% endif %}

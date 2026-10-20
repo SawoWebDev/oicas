@@ -1,0 +1,36 @@
+<p class="help-lead"><b>OICAS (Odoo Inventory Control &amp; Analytics System)</b> is SAWO's system for cycle counting and inventory accuracy. It replaces the Excel files we used before: <i>AMC &amp; ABC Analysis</i>, the <i>Inventory Masterlist &amp; Cycle Count Tracker</i> and the <i>COUNTED LIST</i>. It joins them into one connected system, so nothing has to be copied between files anymore.</p>
+
+<h3>What OICAS does for you</h3>
+<ul>
+  <li><b>Reads stock from Odoo</b> (erp.sawo.com): products, locations and on-hand quantities. It's <b>read-only</b> and never changes Odoo.</li>
+  <li><b>Classifies every item</b> by demand: AMC (average monthly consumption), ABC class, movement class (Fast / Medium / Slow / Non Moving) and how often it must be counted (every 30, 90 or 180 days).</li>
+  <li><b>Plans the cycle counts</b>: shows what's overdue or due and lets you create count plans and printable count sheets.</li>
+  <li><b>Records the physical counts</b> per location (Warehouse / Production) and keeps every figure, correction and recount.</li>
+  <li><b>Compares counts with Odoo</b> (physical − Odoo) and runs a review: investigate, recount, resolve.</li>
+  <li><b>Reports</b>: a dashboard and 16 reports, each exportable to Excel and PDF.</li>
+  <li><b>Imports</b> data that isn't in Odoo yet (items without a code, book balances, count lines, demand).</li>
+</ul>
+
+<h3>From Excel to OICAS</h3>
+<table class="table table-sm table-bordered">
+  <thead><tr><th>Before (Excel)</th><th>Now (OICAS)</th></tr></thead>
+  <tbody>
+    <tr><td>AMC Sep-Jul ABC Analysis workbook (Demand sheet, family sheets, CLASS, CONSOLIDATED)</td><td><span class="ui">AMC Analysis</span>, <span class="ui">ABC Analysis</span>, <span class="ui">Movement Classification</span></td></tr>
+    <tr><td>Copy CONSOLIDATED into the Masterlist</td><td>Automatic: the <span class="ui">Inventory Masterlist</span> always uses the approved analysis</td></tr>
+    <tr><td>Download Odoo stock into "ODOO inv" and paste it into LIST</td><td><span class="ui">Synchronization History → Sync Odoo now</span></td></tr>
+    <tr><td>Type e-mailed counts into COUNTED LIST</td><td><span class="ui">Physical Counting</span> (enter or upload a count sheet) or <span class="ui">Data Import → Count lines</span></td></tr>
+    <tr><td>Master sheet columns K–U (counted date, actual count, Odoo, discrepancy)</td><td><span class="ui">Odoo Reconciliation</span>, calculated automatically on finalize</td></tr>
+    <tr><td>PROGRESS-overall / PROGRESS-weekly</td><td><span class="ui">Dashboard</span>, reports 6 and 7</td></tr>
+    <tr><td>Filter NEXT COUNT to plan the next count</td><td><span class="ui">Cycle Count Planning</span></td></tr>
+  </tbody>
+</table>
+
+<h3>Live and demo</h3>
+<p>The badge at the top right of every page shows where you are:</p>
+<ul>
+  <li><span class="pill pill-sm tone-green">LIVE · primary DB</span>: real Odoo and real data. You log in with your <b>ERP (Odoo) account</b>.</li>
+  <li><span class="pill pill-sm tone-yellow">DEMO · secondary DB</span>: training mode with simulated Odoo and demo accounts. Nothing you do here affects live data.</li>
+</ul>
+
+<div class="help-note"><b>Most important rule:</b> a dash “–” means <b>unknown / not counted</b>, never zero. OICAS never treats something you didn't count as 0.</div>
+<p>New here? Read <a href="#help-getting-started" data-help-topic="getting-started">Getting started</a>, then <a href="#help-workflow" data-help-topic="workflow">The complete workflow</a>.</p>

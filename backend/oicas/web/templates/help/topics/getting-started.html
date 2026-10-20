@@ -1,0 +1,32 @@
+<h3>1. Sign in</h3>
+<ol class="help-steps">
+  <li>Open OICAS in your browser (e.g. <span class="mono">http://&lt;server&gt;:8086</span>).</li>
+  <li><b>Live:</b> enter your <b>ERP (erp.sawo.com) username/email and password</b> and press <span class="ui">Log in with Odoo</span>. Odoo checks your password; OICAS never stores it.<br><b>Demo:</b> use <span class="mono">admin</span>, <span class="mono">manager</span>, <span class="mono">counter</span> or <span class="mono">viewer</span> with password <span class="mono">demo</span>.</li>
+  <li>Your role (viewer, counter, manager or admin) comes from your Odoo groups. See <a href="#help-roles" data-help-topic="roles">Roles &amp; permissions</a>.</li>
+</ol>
+
+<h3>2. Find your way around</h3>
+<table class="table table-sm table-bordered">
+  <tbody>
+    <tr><th style="width:32%">Left sidebar</th><td>All modules, grouped as Overview, Inventory, Analysis and Governance. You only see what your role allows. The search box at the top finds an item by RM code or description.</td></tr>
+    <tr><th>Top right</th><td><span class="pill pill-sm tone-green">LIVE</span>/<span class="pill pill-sm tone-yellow">DEMO</span> badge · <span class="ui">Odoo date/time</span>: when the last Odoo snapshot was taken; red means stale (click it to open Synchronization History) · today's date · page buttons.</td></tr>
+    <tr><th>Banners</th><td>Yellow: demo mode. Red: Odoo data is older than allowed (default 24 h), so Odoo figures aren't current. Green or red message bars: the result of your last action.</td></tr>
+    <tr><th>Tables</th><td>Click a column header to sort (click again to reverse). Use the filter bar and <span class="ui">Apply</span>; <span class="ui">Reset</span> clears it. Click the first column (e.g. the RM code) to open the record. <span class="ui">Excel</span> / <span class="ui">PDF</span> export exactly what's shown.</td></tr>
+    <tr><th>Help</th><td>The red <b>?</b> button (bottom right) or <span class="kbd">F1</span> opens help for the page you're on. <span class="ui">Help Center</span> in the sidebar lists every topic.</td></tr>
+    <tr><th>Bottom left</th><td>Your name and role; the arrow icon logs you out.</td></tr>
+  </tbody>
+</table>
+
+<h3>3. First-time setup (administrator, live)</h3>
+<ol class="help-steps">
+  <li><span class="ui">System Configuration → Imports → Migrate legacy workbooks</span>: loads the Excel history (items, ABC/AMC, all past counts). Run it once.</li>
+  <li><span class="ui">Synchronization History → Sync Odoo now</span>: loads products, locations and stock from Odoo using your ERP login.</li>
+  <li><span class="ui">System Configuration → Odoo locations</span>: mark each Odoo location as WAREHOUSE, PRODUCTION or IGNORE, then sync again.</li>
+  <li><span class="ui">Data Import</span>: add items that aren't in Odoo yet, with their book balances.</li>
+  <li><span class="ui">Data Quality</span>: work through open issues such as missing plant locations or unknown codes.</li>
+</ol>
+
+<h3>4. Daily use</h3>
+<p><b>Counter:</b> Physical Counting → enter or upload counts → Submit.<br>
+<b>Manager:</b> Planning → create plan → (counters count) → finalize sessions → review discrepancies in Odoo Reconciliation.<br>
+<b>Everyone:</b> Dashboard and Reports.</p>

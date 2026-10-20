@@ -1,0 +1,34 @@
+<p class="help-lead">Every official number and how it's calculated. These are the same formulas as the old Excel files, and the tests check them against those files.</p>
+<h3>Counting &amp; reconciliation</h3>
+<table class="table table-sm table-bordered"><tbody>
+  <tr><th style="width:34%">Physical WH / PROD</th><td>Sum of all active entries of the item, for that location, on the count date (WH-1 + WH-2 + WH-3 + WH-4).</td></tr>
+  <tr><th>Variance (discrepancy)</th><td>Physical − Odoo, per location. Negative = less found than Odoo shows.</td></tr>
+  <tr><th>Has discrepancy</th><td>|variance| &gt; tolerance (default 0) in any compared location.</td></tr>
+  <tr><th>Absolute / net variance</th><td>|WH var| + |PROD var| ; WH var + PROD var (quantities, not money).</td></tr>
+  <tr><th>Latest count of an item</th><td>The reconciliation with the most recent count date.</td></tr>
+</tbody></table>
+<h3>Progress KPIs (Dashboard, report 6)</h3>
+<table class="table table-sm table-bordered"><tbody>
+  <tr><th style="width:34%"># of items</th><td>Tracked items in the class</td></tr>
+  <tr><th># counted</th><td>Items with at least one finalized count</td></tr>
+  <tr><th>Counted, no Odoo balance</th><td>Counted, but nothing to compare with (not verifiable)</td></tr>
+  <tr><th># of discrepancy</th><td>Items whose latest count has a discrepancy</td></tr>
+  <tr><th>Count completion</th><td># counted ÷ # of items</td></tr>
+  <tr><th>Inventory accuracy (count based)</th><td>(verifiable counted − # discrepancy) ÷ verifiable counted</td></tr>
+  <tr><th>Overall accuracy</th><td>(verifiable counted − # discrepancy) ÷ # of items</td></tr>
+  <tr><th>Discrepancy rate</th><td># discrepancy ÷ verifiable counted</td></tr>
+</tbody></table>
+<h3>Weekly progress (report 7)</h3>
+<p>Weeks run <b>Monday–Sunday</b>; the date shown is the Sunday. Week # = Excel <span class="mono">WEEKNUM(date, 2)</span>. Total counted = items counted that week · Accurate = counted − discrepancy − not verifiable · Accuracy % = accurate ÷ verifiable · Completion % = cumulative counted ÷ # of items.</p>
+<h3>Analysis</h3>
+<table class="table table-sm table-bordered"><tbody>
+  <tr><th style="width:34%">AMC</th><td>Sum of recorded months ÷ number of recorded months (0 if none)</td></tr>
+  <tr><th>Frequency / frequency %</th><td>Months with recorded demand ÷ months in the period</td></tr>
+  <tr><th>Cumulative %</th><td>Running sum of item total ÷ family total, ranked by total descending</td></tr>
+  <tr><th>Quantity class</th><td>A &lt; 80 % ≤ B &lt; 95 % ≤ C</td></tr>
+  <tr><th>Frequency class</th><td>A &gt; 80 %; B &gt; 50 %; C ≤ 50 %</td></tr>
+  <tr><th>Category → action / class / interval</th><td>Classification matrix; no demand at all → Non Moving</td></tr>
+  <tr><th>Stock in months</th><td>(Physical WH + PROD) ÷ AMC; blank if not counted or AMC = 0</td></tr>
+</tbody></table>
+<h3>Schedule</h3>
+<p><b>Next count</b> = last count date + interval days. Never counted → due on the date the analysis was approved. Overdue days = today − next count.</p>

@@ -1,0 +1,24 @@
+<p class="help-lead">The comparison of what was physically counted with what the system says, <b>per location</b>: <b>Variance = Physical − Odoo</b>. A negative variance (red) means less stock was found than Odoo shows.</p>
+<h3>How a result is calculated</h3>
+<ol class="help-steps">
+  <li>All active entries of the item on that count date are added up per location (Warehouse, Production).</li>
+  <li>The system balance is taken from the Odoo snapshot linked to the session. If Odoo has no balance for the item (e.g. it isn't in Odoo), the latest imported <b>book balance</b> dated on or before the count date is used instead.</li>
+  <li>Variance per location = physical − system. A location that wasn't counted shows “–” and isn't compared.</li>
+  <li>Status: {{ pill('accurate') }} all compared locations equal (within the tolerance, default 0) · {{ pill('discrepancy') }} at least one differs · {{ pill('odoo_missing') }} counted but no system balance to compare.</li>
+</ol>
+<h3>The list (Odoo Reconciliation)</h3>
+<p>Columns: count date, code, description, class at count, physical / Odoo / variance for WH and PROD, absolute variance, status, review, counted by, snapshot. Filters: date range, code, class, status. The summary shows reconciled counts, number with discrepancy, rate, and net and absolute variance (quantities, not money).</p>
+<h3>Review a discrepancy (open a row)</h3>
+<table class="table table-sm table-bordered"><tbody>
+  <tr><th style="width:28%"><span class="ui">Add note</span></th><td>Records a comment. The status doesn't change.</td></tr>
+  <tr><th><span class="ui">Investigating</span></th><td>Marks it as being checked; an assignee is optional.</td></tr>
+  <tr><th><span class="ui">Request recount</span></th><td>Adds the item to the <i>Recount requests</i> plan. Then use <span class="ui">Start recount session</span>: the recount <b>replaces</b> that day's earlier figures for the item, which stay in history.</td></tr>
+  <tr><th><span class="ui">Resolve</span></th><td>Closes it. An explanation is required (e.g. "Odoo adjusted by stock controller", "issued to production, not yet posted").</td></tr>
+  <tr><th><span class="ui">Reopen</span></th><td>Re-opens a resolved discrepancy.</td></tr>
+</tbody></table>
+<p>The page also shows where the system balance came from (Odoo snapshot, legacy Excel or imported book balance), every entry behind the figure, and the full note timeline.</p>
+<div class="help-warn"><b>OICAS never changes Odoo.</b> If stock must be adjusted, the authorised person does it in Odoo. After the next sync and recount, the item shows as accurate.</div>
+<div class="help-example"><div class="lbl">Example</div>
+  1SH03-001 Frame PM, 2026-10-20: Warehouse physical 2,400, Odoo 2,403 → <b>−3</b>; Production not counted (“–”), Odoo 4 → not compared.
+  The manager requests a recount and Christine counts 2,403 → the new result is accurate and replaces the old one, which stays in history.
+</div>

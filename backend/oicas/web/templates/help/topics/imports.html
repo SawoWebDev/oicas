@@ -1,0 +1,47 @@
+<p class="help-lead">Some data isn't in Odoo: items not encoded yet or without a code, their expected stock, counts from other sources, and consumption recorded elsewhere. <span class="ui">Data Import</span> loads it from Excel using fixed templates. Odoo itself is never changed.</p>
+<h3>How every import works</h3>
+<ol class="help-steps">
+  <li>Press <span class="ui">Template</span> to download the Excel file. Its <b>DATA</b> sheet has the exact columns and a grey example row, and the <b>HOW TO</b> sheet explains each column.</li>
+  <li>Fill the DATA sheet. You can leave the grey example row unchanged (it's ignored) or overwrite it.</li>
+  <li>Choose the file and press <span class="ui">Dry run</span>. OICAS checks every row and shows what <i>would</i> be created or updated, without saving anything.</li>
+  <li>If it's valid, press <span class="ui">Import</span>. It's <b>all-or-nothing</b>: one bad row means nothing is saved, and each error is listed with its row number.</li>
+  <li>The result is logged in <i>Import history</i> and the Audit Trail.</li>
+</ol>
+<h3>1. Items not in Odoo</h3>
+<p>Columns: RM CODE · DESCRIPTION · UOM · MATERIAL SECTION · ABC FAMILY · PLANT LOCATION · REMARK · TRACKED.</p>
+<ul>
+  <li><b>No code yet?</b> Leave RM CODE blank and OICAS gives a temporary code: <span class="mono">NC-00001</span>, <span class="mono">NC-00002</span>…</li>
+  <li>Existing codes are <b>updated</b>: section, family, plant, remark and tracked. For items that exist in Odoo, the description and UoM stay as in Odoo.</li>
+  <li>PLANT LOCATION must be one of 1, 2, 3, 4, 1 &amp; 2, 1 &amp; 3, … and ABC FAMILY one of the configured families.</li>
+  <li>TRACKED = yes puts the item in the masterlist and schedule.</li>
+</ul>
+<div class="help-example"><div class="lbl">Example</div>
+  Row: <i>(blank) · Gasket - silicone 5mm · Piece · Consumables · Excluded list · 3 · · yes</i> → creates <b>NC-00001</b>, tracked, plant 3, listed in Data Quality as <i>not in odoo</i>.
+</div>
+<h3>2. Book balances</h3>
+<p>Columns: BALANCE DATE · RM CODE · WAREHOUSE · PRODUCTION · REMARKS. This is the expected (system) stock of items Odoo doesn't hold, e.g. from a stock card.</p>
+<ul>
+  <li>Used by reconciliation <b>only when Odoo has no balance</b> for the item, and only a balance dated <b>on or before</b> the count date.</li>
+  <li>Blank WAREHOUSE or PRODUCTION means unknown, not 0.</li>
+  <li>Counts that had no balance before are re-checked automatically after the import.</li>
+</ul>
+<div class="help-example"><div class="lbl">Example</div>
+  Book balance 2026-10-20 · NC-00001 · WAREHOUSE 120. Christine counts 118 → variance <b>−2</b>, and the reconciliation shows <i>System balance from: imported book balance</i>.
+</div>
+<h3>3. Count lines</h3>
+<p>Columns: DATE COUNTED · RM CODE · COUNTED BY · COUNT (WH-1…4) · COUNT (PROD-1…4) · REMARKS · BOOK WH · BOOK PROD. The same layout as the old COUNTED LIST.</p>
+<ul>
+  <li>Rows are grouped into one session per <b>date + counter</b>, created as <b>submitted</b>; a manager finalizes them in Physical Counting.</li>
+  <li>A row with no quantity at all is skipped and reported, because a blank isn't a count.</li>
+  <li>The optional BOOK WH / BOOK PROD columns save book balances for that date at the same time.</li>
+</ul>
+<h3>4. Demand / consumption</h3>
+<p>Columns: Components/Created on · Components/Product/Reference · Components/Product/Name · Components/Demand, the same as the Odoo export behind the old Demand sheet. Rows are summed per item and month into a <b>demand batch</b>. Then go to <a href="#help-amc" data-help-topic="amc">AMC Analysis</a> and calculate a new run with that batch.</p>
+<h3>When the item is finally encoded in Odoo</h3>
+<p>Open the item → <span class="ui">Change item code</span> → enter the Odoo Internal Reference. All counts, reconciliations, demand and plans move to the new code, and the next <b>Sync Odoo now</b> links it to the Odoo product (its Odoo balance is used from then on).</p>
+<h3>Other loaders</h3>
+<ul>
+  <li><b>Count sheet</b> from a plan: <a href="#help-counting" data-help-topic="counting">Physical Counting</a> → Upload a filled count sheet.</li>
+  <li><b>Legacy Excel migration</b> (one time, admin): System Configuration → Imports → Migrate legacy workbooks.</li>
+  <li><b>Stock from Odoo</b>: <a href="#help-sync" data-help-topic="sync">Loading from Odoo</a>.</li>
+</ul>

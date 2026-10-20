@@ -1,0 +1,29 @@
+<p class="help-lead"><b>Loading from Odoo</b> (erp.sawo.com) is always <b>read-only</b>: OICAS reads products, locations, stock and manufacturing demand, and never creates, changes or deletes anything in Odoo.</p>
+<h3>What a sync reads</h3>
+<table class="table table-sm table-bordered">
+  <thead><tr><th>Odoo data</th><th>Becomes in OICAS</th></tr></thead>
+  <tbody>
+    <tr><td>Products (Internal Reference, name, unit of measure, active)</td><td>Items: code, description, UoM, Odoo product id</td></tr>
+    <tr><td>Internal stock locations</td><td>Locations, mapped by you to WAREHOUSE / PRODUCTION / IGNORE</td></tr>
+    <tr><td>On-hand quantities (stock quants)</td><td>A dated, unchangeable <b>snapshot</b>: stock per item for WAREHOUSE and PRODUCTION</td></tr>
+    <tr><td>Manufacturing-order component demand (via <span class="ui">Sync demand</span> on AMC Analysis)</td><td>A demand batch per month and item</td></tr>
+  </tbody>
+</table>
+<h3>How to sync</h3>
+<ol class="help-steps">
+  <li>Open <span class="ui">Synchronization History</span> (manager).</li>
+  <li>Press <span class="ui">Sync Odoo now</span>. In live mode, OICAS reads Odoo with <b>your ERP login</b> and your Odoo access rights. If the server was restarted since you logged in, enter your ERP password once; it's kept only in memory for your session.</li>
+  <li>The message shows the result: snapshot #, number of products and quants. The new run appears in the table.</li>
+  <li>The first time: map the locations in System Configuration → Odoo locations, then sync again.</li>
+</ol>
+<h3>The page</h3>
+<ul>
+  <li><b>Latest Odoo snapshot</b>: number, time and age; red when older than the limit (default 24 h).</li>
+  <li><b>Last successful sync</b> and <b>Connection</b> (live or fake, Odoo URL).</li>
+  <li><b>History</b>: every sync and import with kind, status ({{ pill('success') }} / {{ pill('failed') }}), times, records, quants, snapshot, quants in unmapped locations and any error.</li>
+</ul>
+<div class="help-note"><b>If Odoo is down</b>, the sync fails safely: nothing is changed, the last good snapshot stays in use, and every page shows a red <i>stale</i> banner so nobody mistakes old figures for current ones.</div>
+<div class="help-example"><div class="lbl">Example</div>
+  Monday 07:30: the manager presses Sync Odoo now → snapshot #42 with 2,053 balances. Counts finalized today are compared with #42. Counts finalized last week stay compared with the snapshot they were finalized against, so history doesn't change.
+</div>
+<p>Items Odoo doesn't have can be added with <a href="#help-imports" data-help-topic="imports">Data Import</a>.</p>

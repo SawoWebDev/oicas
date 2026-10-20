@@ -1,0 +1,30 @@
+<p class="help-lead">Decide <b>what to count next</b> and who counts it. The schedule is calculated automatically: <b>next count = last count date + interval</b> (30, 90 or 180 days from the item's classification).</p>
+<h3>Schedule statuses</h3>
+<table class="table table-sm table-bordered"><tbody>
+  <tr><td>{{ pill('overdue') }}</td><td>Next count date has passed.</td></tr>
+  <tr><td>{{ pill('due_today') }}</td><td>Due today, including items <b>never counted</b> (they're due as soon as an analysis is approved).</td></tr>
+  <tr><td>{{ pill('upcoming') }}</td><td>Due within the next 7 days (adjustable in the rule set).</td></tr>
+  <tr><td>{{ pill('scheduled') }}</td><td>Due later.</td></tr>
+  <tr><td>{{ pill('unscheduled') }}</td><td>No interval (no classification yet).</td></tr>
+</tbody></table>
+<p>Order: the earliest due date comes first, then by action (<b>CLOSE CONTROL before REGULAR before INFREQUENT</b>), then never-counted items.</p>
+<h3>Create a count plan</h3>
+<ol class="help-steps">
+  <li>On <span class="ui">Cycle Count Planning</span>, fill <b>New count plan</b>: name, plan date, due date.</li>
+  <li>Choose <b>Items</b>: <i>All overdue / due today</i>, <i>Overdue, due and upcoming</i>, or <i>Only the items ticked</i>. To tick items, filter the schedule below and use the checkboxes.</li>
+  <li>Optional: <b>Plant location</b> to limit the plan to one area, and <b>Assign to</b> a counter.</li>
+  <li>Press <span class="ui">Create plan</span>. The plan page opens.</li>
+</ol>
+<h3>Plan page</h3>
+<ul>
+  <li>Tiles: items, counted, remaining, plan and due dates.</li>
+  <li><span class="ui">Count sheet (Excel)</span>: the fillable sheet with blank WH-1…4 and PROD-1…4 columns for counters, uploaded later on Physical Counting.</li>
+  <li><span class="ui">Printable PDF</span>: a paper count sheet.</li>
+  <li><span class="ui">Start counting</span>: opens a count session linked to this plan.</li>
+  <li>Tick items and use <span class="ui">Assign ticked</span> to give them to a person; <span class="ui">Close plan</span> when done.</li>
+  <li>Item status changes from <i>pending</i> to <i>counted</i> automatically when a session that contains the item is finalized.</li>
+</ul>
+<div class="help-example"><div class="lbl">Example</div>
+  Monday: filter the schedule <i>Schedule = overdue, Plant location = 3</i> → 120 items. Create plan <i>"Week 43 – Plant 3"</i> with "Only the items ticked" (select all), assign it to Christine A, and download the count sheet. She fills it in during the week and uploads it.
+</div>
+<div class="help-note">A <b>Recount requests</b> plan is created automatically when a manager requests a recount from the reconciliation page.</div>

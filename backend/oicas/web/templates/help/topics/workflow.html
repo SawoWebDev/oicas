@@ -1,0 +1,20 @@
+<p class="help-lead">The cycle repeats continuously. Each step feeds the next automatically, so no copy/paste between files is needed.</p>
+<ol class="help-steps">
+  <li><b>Load from Odoo</b> (<span class="ui">Sync Odoo now</span>): products, locations and on-hand stock are read from erp.sawo.com and saved as a dated <i>snapshot</i>.</li>
+  <li><b>Import what Odoo doesn't have</b> (<span class="ui">Data Import</span>): items without a code, book balances, demand.</li>
+  <li><b>Check data quality</b> (<span class="ui">Data Quality</span>): duplicates, unmapped locations, missing plant locations and so on.</li>
+  <li><b>Analyse demand</b> (<span class="ui">AMC Analysis</span>): calculate AMC, ABC, movement class and count interval as a draft, review the changes, then <b>approve</b>.</li>
+  <li><b>See what to count</b> (<span class="ui">Cycle Count Planning</span>): next count = last count + interval. Overdue items come first.</li>
+  <li><b>Create a count plan</b> and assign counters; print or download the count sheet.</li>
+  <li><b>Count</b> (<span class="ui">Physical Counting</span>): enter or upload the figures per location (WH-1…4, PROD-1…4).</li>
+  <li><b>Submit</b> (counter): entries become locked.</li>
+  <li><b>Finalize</b> (manager): OICAS compares physical with Odoo (or the book balance) → <i>reconciliation</i>.</li>
+  <li><b>Review discrepancies</b> (<span class="ui">Odoo Reconciliation</span>): investigate, request a recount, or resolve with an explanation. Stock adjustments, if needed, are done in Odoo by the authorised person.</li>
+  <li><b>Report</b> (<span class="ui">Dashboard</span>, <span class="ui">Reports Center</span>): progress, accuracy and discrepancies, exported to Excel or PDF.</li>
+  <li><b>Next cycle</b>: the next count date updates automatically, and the schedule shows the next due items.</li>
+</ol>
+<div class="help-example"><div class="lbl">Example — one item through the cycle</div>
+  <b>8RM04-341-1 Acid - Citric</b>: demand in 6 of 11 months, total 745.7 kg → AMC 124.28 kg/month, category <b>AB</b> → <b>Fast Moving, CLOSE CONTROL, count every 30 days</b>.
+  Counted on 2026-10-12: 214.882 kg in the warehouse; Odoo showed 220.4 → variance <b>−5.518</b> (discrepancy, review opened).
+  Next count = 2026-10-12 + 30 days = <b>2026-11-11</b>. Stock in months = 214.882 ÷ 124.28 = <b>1.73</b>.
+</div>

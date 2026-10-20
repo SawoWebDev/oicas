@@ -1,0 +1,28 @@
+<p class="help-lead">16 ready-made reports. Each has filters, sortable columns, a summary line, and <span class="ui">Excel</span> and <span class="ui">PDF</span> buttons that export <b>exactly what's on screen</b>, with the SAWO logo, title, period, filters and data versions.</p>
+<table class="table table-sm table-bordered">
+  <thead><tr><th>#</th><th>Report</th><th>Use it to…</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td>Inventory Masterlist</td><td>See or export the full masterlist with any filter</td></tr>
+    <tr><td>2</td><td>Inventory Count Sheet</td><td>Print blank count sheets for a plan or for all due items</td></tr>
+    <tr><td>3</td><td>Physical Inventory Count Report</td><td>List every count entry (sessions, counters, corrections)</td></tr>
+    <tr><td>4</td><td>Odoo vs Physical Reconciliation</td><td>Compare physical and Odoo per location for a period</td></tr>
+    <tr><td>5</td><td>Inventory Discrepancy Report</td><td>Items whose latest count differs from Odoo, with review status and latest note</td></tr>
+    <tr><td>6</td><td>Overall Cycle Count Progress</td><td>The PROGRESS-overall table (per class + total)</td></tr>
+    <tr><td>7</td><td>Weekly Cycle Count Progress</td><td>The PROGRESS-weekly table: week #, counted, discrepancy, accuracy, cumulative completion</td></tr>
+    <tr><td>8</td><td>AMC Report</td><td>Monthly demand, AMC, stock in months</td></tr>
+    <tr><td>9</td><td>ABC Analysis Report</td><td>Ranking, cumulative %, classes per family</td></tr>
+    <tr><td>10</td><td>Inventory Movement Classification</td><td>Fast / Medium / Slow / Non Moving lists with priority</td></tr>
+    <tr><td>11</td><td>Cycle Count Schedule &amp; Overdue</td><td>Last count, next count, overdue days, open plan, assignee</td></tr>
+    <tr><td>12</td><td>Accuracy &amp; Variance Trends</td><td>Weekly accuracy, discrepancy rate, net and absolute quantity variance</td></tr>
+    <tr><td>13</td><td>Data Quality &amp; Unmatched Inventory</td><td>Open data problems by kind</td></tr>
+    <tr><td>14</td><td>Odoo Synchronization History</td><td>Every sync or import: time, records, failures, snapshot</td></tr>
+    <tr><td>15</td><td>Inventory Audit Trail</td><td>Who changed what and when (managers)</td></tr>
+    <tr><td>16</td><td>Custom Filtered Inventory Report</td><td>Choose fields, filters, sort and group-by yourself</td></tr>
+  </tbody>
+</table>
+<h3>Custom report (16)</h3>
+<p>Type field keys separated by commas in <b>Fields</b>, e.g. <span class="mono">code,description,plant_location,classification,next_due,disc_wh</span>. Choose <b>Sort by</b> and <b>Group by</b> (group totals appear in the summary). The available keys are listed under the table.</p>
+<div class="help-example"><div class="lbl">Example</div>
+  Monthly management pack: report 6 (PDF) + report 7 for the month (Excel) + report 5 filtered "Review status = open" (Excel).
+</div>
+<div class="help-note">Every export is logged with a fingerprint (SHA-256), so a file can be traced back to the exact data it came from.</div>

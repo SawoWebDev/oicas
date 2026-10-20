@@ -1,0 +1,20 @@
+<p class="help-lead">OICAS <b>flags</b> data problems instead of quietly fixing them, so you can decide. The red number next to <i>Data Quality</i> in the sidebar is the count of open issues.</p>
+<h3>Kinds of issues and what to do</h3>
+<table class="table table-sm table-bordered">
+  <thead><tr><th>Kind</th><th>Meaning</th><th>What to do</th></tr></thead>
+  <tbody>
+    <tr><td>unmapped location</td><td>An Odoo location isn't mapped to WAREHOUSE / PRODUCTION; its stock is ignored</td><td>System Configuration → Odoo locations</td></tr>
+    <tr><td>not in odoo</td><td>A tracked item has no Odoo product (imported or not encoded yet)</td><td>Encode it in Odoo, then Change item code; meanwhile import book balances</td></tr>
+    <tr><td>unknown item code</td><td>A code in counts or imports isn't a known item (or matched by different upper/lower case)</td><td>Correct the code or import the item</td></tr>
+    <tr><td>duplicate product code</td><td>Several Odoo products share one Internal Reference</td><td>Fix in Odoo (OICAS uses the lowest product id)</td></tr>
+    <tr><td>product code changed</td><td>The Odoo reference of a known product changed</td><td>Review, then Change item code if correct</td></tr>
+    <tr><td>product without code</td><td>An Odoo product has no Internal Reference</td><td>Information only</td></tr>
+    <tr><td>negative odoo qty</td><td>Odoo on-hand quantity is below zero</td><td>Check in Odoo</td></tr>
+    <tr><td>missing plant location / material section / family / uom</td><td>A masterlist attribute is empty</td><td>Item page or Data Import → Items</td></tr>
+    <tr><td>duplicate code family</td><td>An item is in more than one ABC family</td><td>Choose its family on the item page</td></tr>
+    <tr><td>duplicate count line / count line without qty</td><td>From imports: same item twice on a date, or a line with no quantity</td><td>Check the source file</td></tr>
+    <tr><td>sync failed / stale snapshot</td><td>Odoo couldn't be read, or the data is old</td><td>See Synchronization History; sync again</td></tr>
+  </tbody>
+</table>
+<h3>Actions</h3>
+<p>Per issue: <span class="ui">Resolve</span>, <span class="ui">Ignore</span> or <span class="ui">Reopen</span>. Issues found by a sync or by the checks close automatically once the problem is gone. <span class="ui">Re-run masterlist checks</span> scans all items again. Click a reference (code) to open the item.</p>

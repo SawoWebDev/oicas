@@ -26,6 +26,7 @@ Status legend: ✅ done & tested · 🟡 in progress · 🧪 built, not yet test
 | | DQ detection (sync, import, item scan) and review screen | ✅ | 19 exception kinds |
 | | Legacy workbook migration | ✅ | migration parity: 6,086 items, 34 explained differences |
 | | Data Import center: templates + dry run for items not in Odoo (temporary NC codes), book balances, count lines, demand; change item code when encoded in Odoo | ✅ | `services/imports.py`, 18 tests |
+| | In-app Help: F1 / ? / floating button on every page (context topic), Help Center with 24 topics, data-relationship diagram, worked examples | ✅ | `web/routes_help.py`, `templates/help/` |
 | 5 Counting & scheduling | Plans, assignment, count sheets (Excel/PDF), sessions, entries, upload, submit, corrections, recounts, idempotency | ✅ | |
 | | Scheduling (due / overdue / upcoming / never counted, priority) | ✅ | |
 | 6 Reconciliation | Engine, snapshot linking, stale-snapshot guard, review workflow | ✅ | |
@@ -53,3 +54,4 @@ Status legend: ✅ done & tested · 🟡 in progress · 🧪 built, not yet test
 | 2026-10-20 | Deploy | Live data → primary DB `oicas`, demo data → secondary DB `oicas_demo` (by ODOO_MODE); Odoo login works without the sync account; worker skips sync until it is configured; moved existing demo data to `oicas_demo` and emptied the primary |
 | 2026-10-20 | Odoo | Removed API key / service-account requirement: sync runs with the logged-in user's ERP login (password in memory only, asked again after restart); optional unattended login for the worker; erp.sawo.com is read-only (whitelist enforced) |
 | 2026-10-20 | Imports | Data Import page with Excel templates and dry run for data not in Odoo; book-balance fallback in reconciliation (`balance_source`, migration 0002); "Change item code" moves history when an item is encoded in Odoo; DQ kind `not_in_odoo` |
+| 2026-10-20 | Help | Help system: red ? button and F1 on every page (incl. login) open context help; Help Center (/help) with overview, workflow, data-relationship diagram, every module with examples, imports and Odoo loading, formulas, roles, glossary, FAQ, shortcuts |

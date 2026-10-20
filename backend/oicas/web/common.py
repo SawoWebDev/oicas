@@ -23,7 +23,8 @@ templates = Jinja2Templates(directory=str(BASE / "templates"))
 FLASH = "oicas_flash"
 
 NAV = [
-    ("Overview", [("dashboard", "/", "bi-grid", "Dashboard", "view")]),
+    ("Overview", [("dashboard", "/", "bi-grid", "Dashboard", "view"),
+                  ("help", "/help", "bi-question-circle", "Help Center (F1)", "view")]),
     ("Inventory", [
         ("masterlist", "/masterlist", "bi-list-ul", "Inventory Masterlist", "view"),
         ("planning", "/planning", "bi-calendar2-check", "Cycle Count Planning", "view"),

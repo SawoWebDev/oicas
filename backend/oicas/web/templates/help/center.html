@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Help Center{% endblock %}
+{% block header_actions %}<span class="small-note">Tip: press <span class="kbd">F1</span> on any page for help about that page.</span>{% endblock %}
+{% block content %}
+<div class="row g-3">
+  <div class="col-xl-3 d-none d-xl-block">
+    <div class="card-soft help-toc p-2">
+      {% for g, items in groups.items() %}
+        <div class="grp">{{ g }}</div>
+        {% for k, t, icon in items %}<a href="#help-{{ k }}"><i class="bi {{ icon }}"></i> {{ t }}</a>{% endfor %}
+      {% endfor %}
+    </div>
+  </div>
+  <div class="col-xl-9">
+    <div class="card-soft mb-3"><div class="card-body-soft">
+      <div class="d-flex align-items-center gap-3">
+        <img src="/static/img/sawo-logo.png" alt="SAWO" height="54">
+        <div><h1 class="h4 fw-bold mb-1">OICAS Help Center</h1>
+          <div class="muted">Everything in the Odoo Inventory Control &amp; Analytics System: what each screen is for, how to use it step by step, worked examples, how the data is connected, and how data is loaded from Odoo or imported.</div></div>
+      </div>
+      <div class="d-xl-none mt-3">
+        <select class="form-select form-select-sm" id="help-jump" aria-label="Jump to topic">
+          {% for k, t, icon, g in topics %}<option value="#help-{{ k }}">{{ g }} · {{ t }}</option>{% endfor %}
+        </select>
+      </div>
+    </div></div>
+    {% for k, t, icon, g in topics %}
+      <div class="card-soft mb-3"><div class="card-body-soft">
+        <section class="help-topic" id="help-{{ k }}">
+          <h2><i class="bi {{ icon }} text-danger"></i> {{ t }}</h2>
+          {% include "help/topics/" ~ k ~ ".html" %}
+          <div class="text-end small"><a href="#">Back to top ↑</a></div>
+        </section>
+      </div></div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
