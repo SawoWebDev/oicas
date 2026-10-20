@@ -1,50 +1,96 @@
-<p class="help-lead">Every number in OICAS comes from a chain of connected data. This shows where each piece comes from and what it feeds.</p>
-<svg class="help-diagram" viewBox="0 0 980 560" role="img" aria-label="OICAS data relationships">
-  <defs><marker id="arw" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0 L10,4 L0,8 z" fill="#8a91a0"/></marker></defs>
-  <style>
-    .bx rect{rx:10;ry:10;stroke-width:1.4}
-    .src rect{fill:#fff3e6;stroke:#e8710a} .dat rect{fill:#e8f0fe;stroke:#2563eb} .calc rect{fill:#e8f7ee;stroke:#1f9d55}
-    .out rect{fill:#fdecec;stroke:#d7191f}
-    .bx text{font:600 13px Inter,Segoe UI,sans-serif;fill:#1d2330;text-anchor:middle}
-    .bx .s{font:400 10.5px Inter,Segoe UI,sans-serif;fill:#4a5162}
-    .ln{stroke:#8a91a0;stroke-width:1.4;fill:none;marker-end:url(#arw)}
-    .cap{font:700 11px Inter,Segoe UI,sans-serif;fill:#8a91a0;letter-spacing:.06em}
-  </style>
-  <text class="cap" x="20" y="22">SOURCES</text><text class="cap" x="250" y="22">STORED DATA</text>
-  <text class="cap" x="500" y="22">CALCULATED</text><text class="cap" x="760" y="22">RESULTS</text>
-  <!-- sources -->
-  <g class="bx src"><rect x="15" y="40" width="200" height="62"/><text x="115" y="66">Odoo (erp.sawo.com)</text><text class="s" x="115" y="84">read-only · Sync Odoo now</text></g>
-  <g class="bx src"><rect x="15" y="200" width="200" height="62"/><text x="115" y="226">Excel imports</text><text class="s" x="115" y="244">Data Import · templates</text></g>
-  <g class="bx src"><rect x="15" y="380" width="200" height="62"/><text x="115" y="406">Counters</text><text class="s" x="115" y="424">Physical Counting · count sheets</text></g>
-  <!-- stored -->
-  <g class="bx dat"><rect x="250" y="40" width="210" height="52"/><text x="355" y="62">Items</text><text class="s" x="355" y="79">RM code · description · UoM · plant</text></g>
-  <g class="bx dat"><rect x="250" y="110" width="210" height="52"/><text x="355" y="132">Odoo snapshots</text><text class="s" x="355" y="149">stock per item · WH / PROD · dated</text></g>
-  <g class="bx dat"><rect x="250" y="180" width="210" height="52"/><text x="355" y="202">Book balances</text><text class="s" x="355" y="219">expected stock · items not in Odoo</text></g>
-  <g class="bx dat"><rect x="250" y="250" width="210" height="52"/><text x="355" y="272">Demand batches</text><text class="s" x="355" y="289">consumption per item per month</text></g>
-  <g class="bx dat"><rect x="250" y="340" width="210" height="52"/><text x="355" y="362">Count plans</text><text class="s" x="355" y="379">items to count · assignee</text></g>
-  <g class="bx dat"><rect x="250" y="410" width="210" height="52"/><text x="355" y="432">Count sessions &amp; entries</text><text class="s" x="355" y="449">date · counter · qty per location</text></g>
-  <g class="bx dat"><rect x="250" y="480" width="210" height="52"/><text x="355" y="502">Rule set (versioned)</text><text class="s" x="355" y="519">thresholds · class matrix · tolerance</text></g>
-  <!-- calculated -->
-  <g class="bx calc"><rect x="500" y="200" width="220" height="62"/><text x="610" y="224">Analysis run (approved)</text><text class="s" x="610" y="242">AMC · ABC · category · movement</text><text class="s" x="610" y="256">class · action · interval days</text></g>
-  <g class="bx calc"><rect x="500" y="300" width="220" height="52"/><text x="610" y="322">Schedule</text><text class="s" x="610" y="339">next count = last count + interval</text></g>
-  <g class="bx calc"><rect x="500" y="400" width="220" height="62"/><text x="610" y="424">Reconciliation</text><text class="s" x="610" y="442">physical − Odoo (or book balance)</text><text class="s" x="610" y="456">per WH / PROD · status</text></g>
-  <!-- results -->
-  <g class="bx out"><rect x="760" y="150" width="200" height="52"/><text x="860" y="172">Inventory Masterlist</text><text class="s" x="860" y="189">one row per item, everything joined</text></g>
-  <g class="bx out"><rect x="760" y="250" width="200" height="52"/><text x="860" y="272">Dashboard &amp; KPIs</text><text class="s" x="860" y="289">completion · accuracy · overdue</text></g>
-  <g class="bx out"><rect x="760" y="350" width="200" height="52"/><text x="860" y="372">Reports &amp; exports</text><text class="s" x="860" y="389">16 reports · Excel · PDF</text></g>
-  <g class="bx out"><rect x="760" y="440" width="200" height="52"/><text x="860" y="462">Discrepancy review</text><text class="s" x="860" y="479">investigate · recount · resolve</text></g>
-  <!-- arrows -->
-  <path class="ln" d="M215,62 H248"/><path class="ln" d="M215,85 C232,85 232,136 248,136"/>
-  <path class="ln" d="M215,222 C232,222 232,66 248,66"/><path class="ln" d="M215,230 H248 V206"/><path class="ln" d="M215,240 C232,240 232,276 248,276"/>
-  <path class="ln" d="M215,250 C232,250 232,436 248,436"/><path class="ln" d="M215,410 H248"/>
-  <path class="ln" d="M460,276 C480,276 480,231 498,231"/><path class="ln" d="M460,66 C485,66 485,215 498,215"/><path class="ln" d="M460,506 C482,506 482,250 498,250"/>
-  <path class="ln" d="M610,262 V298"/><path class="ln" d="M460,366 C480,366 480,320 498,320"/>
-  <path class="ln" d="M460,436 C480,436 480,420 498,420"/><path class="ln" d="M460,136 C490,136 490,440 498,440"/><path class="ln" d="M460,206 C486,206 486,452 498,452"/>
-  <path class="ln" d="M610,400 V354"/>
-  <path class="ln" d="M720,225 C740,225 740,176 758,176"/><path class="ln" d="M720,326 C740,326 740,186 758,186"/><path class="ln" d="M720,430 C744,430 744,196 758,196"/>
-  <path class="ln" d="M720,240 C740,240 740,276 758,276"/><path class="ln" d="M720,436 C740,436 740,376 758,376"/><path class="ln" d="M720,450 H758 V466"/>
-</svg>
-<p class="small-note mt-1">Orange = where data comes from · Blue = data OICAS stores · Green = calculated by OICAS · Red = what you see and use.</p>
+{% from "help/_flow.html" import node, arrow %}
+<p class="help-lead">Every number in OICAS comes from a chain of connected data. The five flows below show where each piece comes from and what it feeds. Read each one <b>left to right</b>. Boxes grouped by a bracket <b>]</b> feed the next box <b>together</b>.</p>
+<div class="fl-legend"><span class="l-src">Source (outside OICAS)</span><span class="l-act">Action you take</span><span class="l-dat">Data OICAS stores</span><span class="l-calc">Calculated by OICAS</span><span class="l-out">What you see and use</span></div>
+
+<div class="flow-block">
+  <div class="fl-head"><span class="fl-no">1</span> Loading from Odoo</div>
+  <div class="fl-desc">Read-only: OICAS only reads erp.sawo.com, it never writes to it.</div>
+  <div class="flow">
+    {{ node('Odoo', 'erp.sawo.com · read-only', 'src') }}
+    {{ arrow() }}
+    {{ node('Sync Odoo now', 'manager · your ERP login', 'act') }}
+    {{ arrow() }}
+    <div class="fl-stack">
+      {{ node('Items', 'RM code · description · UoM', 'dat') }}
+      {{ node('Odoo locations', 'mapped to WH / PROD / IGNORE', 'dat') }}
+      {{ node('Odoo snapshot', 'stock per item, WH & PROD, dated', 'dat') }}
+    </div>
+  </div>
+</div>
+
+<div class="flow-block">
+  <div class="fl-head"><span class="fl-no">2</span> Importing what Odoo doesn't have</div>
+  <div class="fl-desc">Excel templates with dry run; all-or-nothing.</div>
+  <div class="flow">
+    {{ node('Excel template', 'filled DATA sheet', 'src') }}
+    {{ arrow() }}
+    {{ node('Data Import', 'dry run → import', 'act') }}
+    {{ arrow() }}
+    <div class="fl-stack">
+      {{ node('Items not in Odoo', 'temporary NC-codes', 'dat') }}
+      {{ node('Book balances', 'expected stock, dated', 'dat') }}
+      {{ node('Count sessions', 'from count lines (submitted)', 'dat') }}
+      {{ node('Demand batch', 'consumption per month', 'dat') }}
+    </div>
+  </div>
+</div>
+
+<div class="flow-block">
+  <div class="fl-head"><span class="fl-no">3</span> Classifying items (what to count and how often)</div>
+  <div class="fl-desc">One analysis run per period; only the approved run is used.</div>
+  <div class="flow">
+    <div class="fl-stack">
+      {{ node('Demand batch', 'from Odoo or Excel', 'dat') }}
+      {{ node('Item families', 'RAW MAT, BOX, …', 'dat') }}
+      {{ node('Rule set', 'thresholds · class matrix', 'dat') }}
+    </div>
+    {{ arrow('calculate') }}
+    {{ node('Analysis run', 'draft → approve', 'calc') }}
+    {{ arrow() }}
+    {{ node('Per item', 'AMC · ABC category · class · action · interval', 'calc') }}
+    {{ arrow() }}
+    {{ node('Inventory Masterlist', 'classification columns', 'out') }}
+  </div>
+</div>
+
+<div class="flow-block">
+  <div class="fl-head"><span class="fl-no">4</span> Counting and comparing with Odoo</div>
+  <div class="fl-desc">Physical count vs system balance, per location (WH and PROD).</div>
+  <div class="flow">
+    {{ node('Schedule', 'next count = last count + interval', 'calc') }}
+    {{ arrow() }}
+    {{ node('Count plan', 'items · assignee · count sheet', 'dat') }}
+    {{ arrow('count') }}
+    <div class="fl-stack">
+      {{ node('Count entries', 'physical qty (submitted)', 'dat') }}
+      {{ node('Odoo snapshot', 'or book balance if not in Odoo', 'dat') }}
+    </div>
+    {{ arrow('finalize') }}
+    {{ node('Reconciliation', 'physical − system = variance', 'calc') }}
+    {{ arrow() }}
+    {{ node('Discrepancy review', 'investigate · recount · resolve', 'out') }}
+  </div>
+  <div class="fl-loop"><i class="bi bi-arrow-repeat text-danger"></i> The count date becomes the item's <b>last count</b>, so the schedule moves its next count forward and the cycle starts again. A <b>recount</b> goes back to <i>Count plan</i>.</div>
+</div>
+
+<div class="flow-block">
+  <div class="fl-head"><span class="fl-no">5</span> What you see</div>
+  <div class="fl-desc">Everything is joined per item in the masterlist; dashboard and reports read from it.</div>
+  <div class="flow">
+    <div class="fl-stack">
+      {{ node('Approved analysis', 'class · AMC · interval', 'calc') }}
+      {{ node('Latest reconciliation', 'counted date · variance', 'calc') }}
+      {{ node('Schedule', 'next count · overdue', 'calc') }}
+    </div>
+    {{ arrow('joined per item') }}
+    {{ node('Inventory Masterlist', 'one row per item', 'out') }}
+    {{ arrow() }}
+    <div class="fl-stack">
+      {{ node('Dashboard & KPIs', 'completion · accuracy · overdue', 'out') }}
+      {{ node('Reports & exports', '16 reports · Excel · PDF', 'out') }}
+    </div>
+  </div>
+</div>
 
 <h3>The main records and how they connect</h3>
 <table class="table table-sm table-bordered">

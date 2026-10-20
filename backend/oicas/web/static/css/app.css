@@ -80,6 +80,40 @@
 .help-toc a:hover { background: var(--brand-soft); color: var(--brand); }
 .help-toc .grp { font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--muted); margin: 12px 8px 4px; }
 .help-diagram { width: 100%; height: auto; background: #fcfcfd; border: 1px solid var(--border); border-radius: 10px; }
+/* Flow diagrams: straight arrows, heads exactly on the line; stacked inputs grouped by a bracket */
+.flow-block { background: #fcfcfd; border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin: 12px 0; }
+.flow-block > .fl-head { font-weight: 700; font-size: 13.5px; margin-bottom: 4px; display: flex; gap: 8px; align-items: center; }
+.flow-block > .fl-head .fl-no { width: 22px; height: 22px; border-radius: 50%; background: var(--brand); color: #fff;
+  font-size: 12px; display: inline-flex; align-items: center; justify-content: center; flex: none; }
+.flow-block > .fl-desc { font-size: 12.5px; color: var(--muted); margin-bottom: 10px; }
+.flow { display: flex; align-items: center; flex-wrap: nowrap; overflow-x: auto; padding: 4px 2px 6px; }
+.fl-node { flex: none; width: 170px; min-height: 58px; border: 1.5px solid; border-radius: 10px; padding: 8px 10px;
+  display: flex; flex-direction: column; justify-content: center; text-align: center; background: #fff; }
+.fl-title { font-weight: 700; font-size: 12.5px; line-height: 1.25; color: #1d2330; }
+.fl-sub { font-size: 11px; color: #4a5162; line-height: 1.3; margin-top: 3px; }
+.fl-src { background: #fff3e6; border-color: #e8710a; }
+.fl-dat { background: #e8f0fe; border-color: #2563eb; }
+.fl-calc { background: #e8f7ee; border-color: #1f9d55; }
+.fl-out { background: #fdecec; border-color: #d7191f; }
+.fl-act { background: #fff; border-color: #8a91a0; border-style: dashed; }
+.fl-arrow { flex: none; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0 6px; }
+.fl-arrow svg line { stroke: #6b7280; stroke-width: 2; }
+.fl-arrow svg polygon { fill: #6b7280; }
+.fl-arrow-label { font-size: 10.5px; color: #6b7280; font-weight: 600; white-space: nowrap; margin-bottom: 2px; }
+.fl-stack { flex: none; display: flex; flex-direction: column; gap: 8px; padding: 6px 12px 6px 0;
+  border: 2px solid #9aa1ad; border-left: 0; border-radius: 0 10px 10px 0; }
+.fl-stack .fl-node { width: 170px; min-height: 48px; }
+.fl-loop { font-size: 12px; color: #4a5162; margin-top: 6px; display: flex; align-items: center; gap: 6px; }
+.fl-legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 11.5px; color: #4a5162; margin: 6px 0 4px; }
+.fl-legend span::before { content: ""; display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 5px;
+  vertical-align: -2px; border: 1.5px solid; }
+.fl-legend .l-src::before { background: #fff3e6; border-color: #e8710a; }
+.fl-legend .l-dat::before { background: #e8f0fe; border-color: #2563eb; }
+.fl-legend .l-calc::before { background: #e8f7ee; border-color: #1f9d55; }
+.fl-legend .l-out::before { background: #fdecec; border-color: #d7191f; }
+.fl-legend .l-act::before { background: #fff; border-color: #8a91a0; border-style: dashed; }
+.help-panel .fl-node, .help-panel .fl-stack .fl-node { width: 132px; }
+.help-panel .fl-arrow svg { width: 30px; }
 .help-related a { margin: 0 6px 6px 0; }
 .ui { display: inline-block; background: #f1f2f4; border: 1px solid var(--border); border-radius: 6px; padding: 0 6px;
   font-size: 12px; font-weight: 600; color: #374151; white-space: nowrap; }

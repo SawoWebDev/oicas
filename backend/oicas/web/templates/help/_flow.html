@@ -1,0 +1,11 @@
+{# Building blocks for straight, aligned flow diagrams in Help. #}
+{% macro node(title, sub='', kind='dat') -%}
+  <div class="fl-node fl-{{ kind }}"><div class="fl-title">{{ title }}</div>{% if sub %}<div class="fl-sub">{{ sub }}</div>{% endif %}</div>
+{%- endmacro %}
+
+{% macro arrow(label='') -%}
+  <div class="fl-arrow" aria-hidden="true">
+    {% if label %}<span class="fl-arrow-label">{{ label }}</span>{% endif %}
+    <svg viewBox="0 0 44 14" width="44" height="14"><line x1="0" y1="7" x2="34" y2="7"/><polygon points="33,1.5 44,7 33,12.5"/></svg>
+  </div>
+{%- endmacro %}
