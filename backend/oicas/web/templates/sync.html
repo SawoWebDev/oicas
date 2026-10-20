@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% from "_macros.html" import report_card %}
+{% block header_actions %}
+  {% if can('sync.run') %}<form method="post" action="/sync/run"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn btn-primary btn-sm"><i class="bi bi-arrow-repeat"></i> Sync Odoo now</button></form>{% endif %}
+{% endblock %}
+{% block content %}
+{% set s = sync_state %}
+<div class="row g-3 mb-3">
+  <div class="col-md-4"><div class="card-soft kpi"><div class="kpi-top"><span class="kpi-icon {{ 'tone-red' if s.stale else 'tone-green' }}"><i class="bi bi-cloud-check"></i></span></div>
+    <div class="kpi-label">Latest Odoo snapshot</div><div class="kpi-value fs-5">{% if s.snapshot %}#{{ s.snapshot.id }} · {{ fmt(s.snapshot.taken_at, 'datetime') }}{% else %}none{% endif %}</div>
+    <div class="kpi-sub">{% if s.snapshot %}{{ '%.1f'|format(s.age_hours) }} h old · limit {{ '%.0f'|format(s.threshold_hours) }} h · {{ 'STALE' if s.stale else 'current' }}{% endif %}</div></div></div>
+  <div class="col-md-4"><div class="card-soft kpi"><div class="kpi-top"><span class="kpi-icon tone-blue"><i class="bi bi-check2-circle"></i></span></div>
+    <div class="kpi-label">Last successful sync</div><div class="kpi-value fs-5">{{ fmt(s.last_success.finished_at, 'datetime') if s.last_success else '–' }}</div></div></div>
+  <div class="col-md-4"><div class="card-soft kpi"><div class="kpi-top"><span class="kpi-icon tone-gray"><i class="bi bi-plug"></i></span></div>
+    <div class="kpi-label">Connection</div><div class="kpi-value fs-5">{{ settings.odoo_mode }}{% if settings.odoo_mode == 'live' %} · {{ settings.odoo_url }}{% endif %}</div>
+    <div class="kpi-sub">Read-only: search_read / read / fields_get only</div></div></div>
+</div>
+{{ report_card(res, pg, filters, params, export_q, query, request, cell, fmt) }}
+{% endblock %}

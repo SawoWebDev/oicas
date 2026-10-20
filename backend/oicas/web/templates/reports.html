@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Reports Center{% endblock %}
+{% block page_kicker %}Analysis{% endblock %}
+{% block page_title %}Reports Center{% endblock %}
+{% block content %}
+<p class="muted small mb-3">Every report uses the same calculation engine as the screens. Excel and PDF exports contain exactly the rows shown for the selected filters, and each export is logged with its data versions.</p>
+<div class="row g-3">
+  {% for d in defs if d.key != 'audit_trail' or can('audit.view') %}
+  <div class="col-md-6 col-xl-3">
+    <a class="card-soft report-card" href="/reports/{{ d.key }}">
+      <div class="d-flex align-items-center gap-2 mb-2"><span class="num-badge tone-red">{{ d.number }}</span><b>{{ d.title }}</b></div>
+      <div class="small muted">{{ d.description }}</div>
+    </a>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

@@ -446,7 +446,8 @@ def parse_count_sheet(fp: BinaryIO) -> tuple[dict, list[dict], list[str]]:
     meta = {"count_date": _date(rows[1][1]) if len(rows) > 1 else None,
             "counted_by": _text(rows[2][1]) if len(rows) > 2 else None,
             "plan_id": int(rows[3][1]) if len(rows) > 3 and isinstance(rows[3][1], (int, float)) else None}
-    if len(rows) < HEADER_ROW or [(_text(h) or "").upper() for h in rows[HEADER_ROW - 1][:len(SHEET_HEADERS)]] != SHEET_HEADERS:
+    expected = [h.upper() for h in SHEET_HEADERS]
+    if len(rows) < HEADER_ROW or [(_text(h) or "").upper() for h in rows[HEADER_ROW - 1][:len(SHEET_HEADERS)]] != expected:
         return meta, [], ["the file is not an OICAS count sheet (header row 6 does not match the template)"]
     entries = []
     for n, r in enumerate(rows[HEADER_ROW:], start=HEADER_ROW + 1):

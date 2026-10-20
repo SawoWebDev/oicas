@@ -91,15 +91,19 @@ class FakeOdoo:
                 products.append({"id": pid, "default_code": it.code, "display_name": f"[{it.code}] {it.description}",
                                  "name": it.description, "uom_id": [1, it.uom_name or "Units"], "active": True,
                                  "type": "product"})
-            snap = db.scalars(select(InventorySnapshot).where(InventorySnapshot.source.in_(("excel_import", "odoo")))
-                              .order_by(InventorySnapshot.taken_at.desc())).first()
-            if snap:
+            # Latest *imported* balance per item and bucket (never the fake's own sync output).
+            latest: dict[tuple[str, str], float] = {}
+            snaps = db.scalars(select(InventorySnapshot).where(InventorySnapshot.source.in_(("excel_import", "legacy_list")))
+                               .order_by(InventorySnapshot.taken_at, InventorySnapshot.id)).all()
+            for snap in snaps:
                 for ln in db.scalars(select(SnapshotLine).where(SnapshotLine.snapshot_id == snap.id)):
-                    if ln.item_code in ids:
-                        loc = WH_LOC if ln.bucket == "WAREHOUSE" else PROD_LOC
-                        quants.append({"id": len(quants) + 1, "product_id": [ids[ln.item_code], ln.item_code],
-                                       "location_id": [loc["id"], loc["complete_name"]], "quantity": ln.qty,
-                                       "company_id": [1, "Demo Company"]})
+                    latest[(ln.item_code, ln.bucket)] = ln.qty
+            for (code, bucket), qty in latest.items():
+                if code in ids and qty:
+                    loc = WH_LOC if bucket == "WAREHOUSE" else PROD_LOC
+                    quants.append({"id": len(quants) + 1, "product_id": [ids[code], code],
+                                   "location_id": [loc["id"], loc["complete_name"]], "quantity": qty,
+                                   "company_id": [1, "Demo Company"]})
         return cls(products=products, quants=quants)
 
     # -- gateway API ----------------------------------------------------------------------

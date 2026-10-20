@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% from "_macros.html" import report_card %}
+{% block content %}
+<p class="muted small mb-3">{{ rdef.description }}</p>
+{% if show_runs %}
+<div class="row g-3 mb-3">
+  <div class="col-xl-7"><div class="card-soft h-100"><div class="card-head"><h2>Analysis runs</h2></div>
+    <div class="table-responsive"><table class="table table-soft table-compact">
+      <thead><tr><th>Run</th><th>Period</th><th>Source</th><th>Rule set</th><th>Status</th><th>Created</th><th></th></tr></thead>
+      <tbody>{% for r in runs %}<tr><td class="fw-semibold">#{{ r.id }}</td><td>{{ r.stats.get('period') or fmt(r.period_start, 'date') }}</td><td>{{ humanize(r.source) }}</td>
+        <td>v{{ r.rule_set.version }}</td><td>{{ pill(r.status) }}</td><td class="small">{{ fmt(r.created_at, 'datetime') }}</td>
+        <td class="text-end"><a class="btn btn-outline-primary btn-xs" href="/analysis/runs/{{ r.id }}">Detail</a></td></tr>
+      {% else %}<tr><td colspan="7" class="muted text-center py-3">No analysis runs yet.</td></tr>{% endfor %}</tbody>
+    </table></div></div></div>
+  <div class="col-xl-5"><div class="card-soft h-100"><div class="card-head"><h2>Calculate a new analysis</h2></div>
+    <div class="card-body-soft">
+      {% if can('analysis.run') %}
+      <form method="post" action="/analysis/runs" class="row g-2 mb-3">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <div class="col-12"><label class="form-label small">Demand data</label><select class="form-select form-select-sm" name="batch_id" required>
+          {% for b in batches %}<option value="{{ b.id }}">#{{ b.id }} {{ b.label }} ({{ b.period_start.strftime('%b %Y') }} – {{ b.period_end.strftime('%b %Y') }})</option>{% endfor %}</select></div>
+        <div class="col-6"><label class="form-label small">First month</label><input class="form-control form-control-sm" type="month" name="start" value="2025-09" required></div>
+        <div class="col-6"><label class="form-label small">Months</label><input class="form-control form-control-sm" type="number" name="months" value="11" min="1" max="36" required></div>
+        <div class="col-12"><button class="btn btn-primary btn-sm" {% if not batches %}disabled{% endif %}>Calculate draft run</button></div>
+      </form>
+      <hr>
+      <form method="post" action="/analysis/demand/sync" class="row g-2 mb-3">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <div class="col-12 small fw-semibold">Retrieve demand from Odoo (MO components)</div>
+        <div class="col-5"><input class="form-control form-control-sm" type="month" name="start" value="2025-09" required></div>
+        <div class="col-3"><input class="form-control form-control-sm" type="number" name="months" value="11" min="1" max="36"></div>
+        <div class="col-4"><button class="btn btn-soft btn-sm w-100">Sync demand</button></div>
+      </form>
+      <form method="post" action="/analysis/demand/upload" enctype="multipart/form-data" class="row g-2">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <div class="col-12 small fw-semibold">…or upload an Odoo export (Created on / Reference / Demand) or Demand pivot</div>
+        <div class="col-7"><input class="form-control form-control-sm" type="file" name="file" accept=".xlsx" required></div>
+        <div class="col-5"><input class="form-control form-control-sm" type="month" name="first_month" title="pivot only: month of the first quantity column"></div>
+        <div class="col-12"><button class="btn btn-soft btn-sm">Upload demand</button></div>
+      </form>
+      {% else %}<div class="muted small">Only managers can run analyses.</div>{% endif %}
+    </div></div></div>
+</div>
+{% endif %}
+{% if abc_chart and run %}
+<div class="row g-3 mb-3"><div class="col-xl-5"><div class="card-soft"><div class="card-head"><h2>Category distribution (run #{{ run.id }})</h2></div>
+  <div class="card-body-soft"><div class="chart-box chart-box-sm"><canvas data-chart="doughnut" data-source="abc-data"></canvas></div></div></div></div>
+  <div class="col-xl-7"><div class="card-soft h-100"><div class="card-head"><h2>Method</h2></div><div class="card-body-soft small">
+    Per family: items ranked by total demand (descending), cumulative share including the item → <b>A</b> &lt; 80 %, <b>C</b> ≥ 95 %, else <b>B</b>.
+    Frequency = months with demand ÷ months in period → <b>A</b> &gt; 80 %, <b>C</b> ≤ 50 %, else <b>B</b>. Category = quantity class + frequency class,
+    mapped to action, classification and interval by the rule set's classification matrix. Items with no demand in any month are <b>Non Moving</b>.
+  </div></div></div></div>
+<script type="application/json" id="abc-data">{{ abc_chart|safe }}</script>
+{% endif %}
+{{ report_card(res, pg, filters, params, export_q, query, request, cell, fmt) }}
+{% endblock %}

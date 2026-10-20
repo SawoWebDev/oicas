@@ -1,0 +1,54 @@
+name: oicas
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: oicas
+      POSTGRES_USER: oicas
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U oicas -d oicas"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  web:
+    build: ./backend
+    image: oicas-web:latest
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://oicas:${POSTGRES_PASSWORD}@db:5432/oicas
+      DATA_DIR: /app/data
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${OICAS_PORT:-8086}:8000"
+    volumes:
+      - appdata:/app/data
+      - ./docs/reference:/docs/reference:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  worker:
+    image: oicas-web:latest
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://oicas:${POSTGRES_PASSWORD}@db:5432/oicas
+    command: ["python", "-m", "oicas.cli", "worker"]
+    depends_on:
+      web:
+        condition: service_healthy  # web applies migrations on start
+
+volumes:
+  pgdata:
+  appdata:

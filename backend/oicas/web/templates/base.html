@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ title|default('OICAS') }}{% endblock %} · OICAS · SAWO</title>
+  <link rel="icon" href="/static/img/sawo-logo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="/static/vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
+  <link href="/static/vendor/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="/static/css/gas-base.css" rel="stylesheet">
+  <link href="/static/css/app.css" rel="stylesheet">
+</head>
+<body hx-headers='{"X-CSRF-Token": "{{ csrf }}"}'>
+{% block body %}
+  <aside class="sidebar" id="sidebar">
+    <a class="sidebar-logo" href="/">
+      <img src="/static/img/sawo-logo.png" alt="SAWO">
+      <span>Odoo Inventory Control<br>&amp; Analytics System</span>
+    </a>
+    {% if can('view') %}
+    <form class="sidebar-search" method="get" action="/masterlist">
+      <i class="bi bi-search"></i>
+      <input class="form-control form-control-sm" type="search" name="q" placeholder="Search RM code…" value="">
+    </form>
+    {% endif %}
+    {% for section, links in nav %}
+      <div class="nav-section">{{ section }}</div>
+      {% for key, href, icon, label, perm in links if can(perm) %}
+        <a class="side-link {% if active == key %}active{% endif %}" href="{{ href }}"><i class="bi {{ icon }}"></i> {{ label }}
+          {% if key == 'dq' and dq_open %}<span class="badge-count">{{ dq_open }}</span>{% endif %}</a>
+      {% endfor %}
+    {% endfor %}
+    <div class="sidebar-footer">
+      <div class="user-chip">
+        <span class="avatar">{{ (user.name or user.login)[:1]|upper }}{{ ((user.name or '').split(' ')[-1])[:1]|upper if ' ' in (user.name or '') else '' }}</span>
+        <div class="flex-grow-1 overflow-hidden">
+          <div class="name text-truncate">{{ user.name or user.login }}</div>
+          <div class="role">{{ user.role|capitalize }}</div>
+        </div>
+        <form method="post" action="/logout">
+          <input type="hidden" name="csrf" value="{{ csrf }}">
+          <button class="btn btn-sm btn-link text-secondary p-0" title="Log out"><i class="bi bi-box-arrow-right fs-5"></i></button>
+        </form>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="page-header">
+      <div class="d-flex align-items-center gap-2">
+        <button class="btn btn-soft btn-sm sidebar-toggle" type="button" data-toggle-sidebar><i class="bi bi-list"></i></button>
+        <div>
+          <div class="page-kicker">{% block page_kicker %}{{ kicker|default('Happy working') }}{% endblock %}</div>
+          <h1 class="page-title">{% block page_title %}{{ title|default(user.name or user.login) }}{% endblock %}</h1>
+        </div>
+      </div>
+      <div class="header-actions">
+        {% if sync_state %}
+          {% set s = sync_state %}
+          <a class="sync-chip {% if s.stale %}stale{% endif %}" href="/sync" title="Latest Odoo snapshot">
+            <i class="bi bi-cloud-arrow-down"></i>
+            {% if s.snapshot %}Odoo {{ fmt(s.snapshot.taken_at, 'datetime') }}{% if s.stale %} · stale{% endif %}{% else %}No Odoo snapshot{% endif %}
+          </a>
+        {% endif %}
+        <span class="date-chip"><i class="bi bi-calendar3"></i> {{ today.strftime('%d-%m-%Y') }}</span>
+        {% block header_actions %}{% endblock %}
+      </div>
+    </header>
+
+    {% if settings.odoo_mode == 'fake' %}
+      <div class="env-banner"><i class="bi bi-cone-striped"></i><span><b>Development fixture</b> — Odoo is simulated (ODOO_MODE=fake). Data shown is not live production data.</span></div>
+    {% endif %}
+    {% if sync_state and sync_state.stale %}
+      <div class="stale-banner"><i class="bi bi-exclamation-triangle"></i><span>
+        {% if sync_state.snapshot %}Odoo data is stale: the latest successful snapshot is {{ '%.0f'|format(sync_state.age_hours) }} h old (limit {{ '%.0f'|format(sync_state.threshold_hours) }} h). Figures from Odoo are <b>not current</b>.
+        {% else %}No Odoo snapshot has been taken yet, so Odoo balances are unavailable.{% endif %}
+        {% if sync_state.last_run and sync_state.last_run.status == 'failed' %} Last sync failed: {{ sync_state.last_run.error }}{% endif %}
+      </span></div>
+    {% endif %}
+    {% if flash_msg %}
+      <div class="alert alert-{{ flash_msg[0] }} alert-dismissible fade show py-2" role="alert">
+        {{ flash_msg[1] }}
+        <button type="button" class="btn-close py-2" data-bs-dismiss="alert"></button>
+      </div>
+    {% endif %}
+
+    {% block content %}{% endblock %}
+    <div class="small-note text-center mt-4">OICAS v{{ version }} · read-only toward Odoo</div>
+  </main>
+{% endblock %}
+<script src="/static/vendor/bootstrap/bootstrap.bundle.min.js"></script>
+<script src="/static/vendor/htmx.min.js"></script>
+<script src="/static/vendor/chart.umd.min.js"></script>
+<script src="/static/js/app.js"></script>
+</body>
+</html>

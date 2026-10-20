@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% from "_macros.html" import report_card %}
+{% block content %}
+<div class="row g-3 mb-3">
+  <div class="col-xl-8">
+    <div class="card-soft h-100">
+      <div class="card-head"><h2>Count plans</h2></div>
+      <div class="table-responsive"><table class="table table-soft table-compact">
+        <thead><tr><th>Plan</th><th>Date</th><th>Due</th><th>Status</th><th style="min-width:140px">Progress</th><th class="text-end"></th></tr></thead>
+        <tbody>{% for p in plans %}
+          {% set n = plan_counts.get(p.id, 0) %}{% set d = plan_done.get(p.id, 0) %}
+          <tr><td class="fw-semibold">#{{ p.id }} {{ p.name }}</td><td>{{ fmt(p.plan_date, 'date') }}</td><td>{{ fmt(p.due_date, 'date') }}</td><td>{{ pill(p.status) }}</td>
+            <td><div class="d-flex align-items-center gap-2"><div class="progress flex-grow-1"><div class="progress-bar {% if d == n and n %}bg-done{% endif %}" style="width: {{ (100 * d / n) if n else 0 }}%"></div></div><span class="small-note">{{ d }}/{{ n }}</span></div></td>
+            <td class="text-end"><a class="btn btn-outline-primary btn-xs" href="/planning/plans/{{ p.id }}">Open</a></td></tr>
+        {% else %}<tr><td colspan="6" class="muted text-center py-4">No count plans yet.</td></tr>{% endfor %}</tbody>
+      </table></div>
+    </div>
+  </div>
+  <div class="col-xl-4">
+    <div class="card-soft h-100">
+      <div class="card-head"><h2>New count plan</h2></div>
+      <div class="card-body-soft">
+        {% if can('plan.manage') %}
+        <form method="post" action="/planning/plans" id="plan-form">
+          <input type="hidden" name="csrf" value="{{ csrf }}">
+          <div class="mb-2"><label class="form-label small">Name</label><input class="form-control form-control-sm" name="name" placeholder="Week {{ today.isocalendar()[1] }} cycle count"></div>
+          <div class="row g-2 mb-2">
+            <div class="col"><label class="form-label small">Plan date</label><input class="form-control form-control-sm" type="date" name="plan_date" value="{{ today.isoformat() }}"></div>
+            <div class="col"><label class="form-label small">Due date</label><input class="form-control form-control-sm" type="date" name="due_date"></div>
+          </div>
+          <div class="mb-2"><label class="form-label small">Items</label>
+            <select class="form-select form-select-sm" name="mode">
+              <option value="due">All overdue / due today</option>
+              <option value="due_upcoming">Overdue, due and upcoming (7 days)</option>
+              <option value="selected">Only the items ticked in the schedule below</option>
+            </select></div>
+          <div class="mb-2"><label class="form-label small">Plant location (optional)</label><input class="form-control form-control-sm" name="plant_location" placeholder="e.g. 3"></div>
+          <div class="mb-3"><label class="form-label small">Assign to</label><select class="form-select form-select-sm" name="assignee_id"><option value="">Unassigned</option>
+            {% for u in users %}<option value="{{ u.id }}">{{ u.name or u.login }} ({{ u.role }})</option>{% endfor %}</select></div>
+          <button class="btn btn-primary btn-sm w-100"><i class="bi bi-plus-lg"></i> Create plan</button>
+          <div class="small-note mt-2">Items are prioritised by action (Close Control first) and days overdue. Never-counted items are due now (rule set: never counted = due now).</div>
+        </form>
+        {% else %}<div class="muted small">Only managers can create count plans.</div>{% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{{ report_card(res, pg, filters, params, export_q, query, request, cell, fmt, selectable=can('plan.manage')) }}
+{% endblock %}

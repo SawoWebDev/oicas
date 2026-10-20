@@ -26,3 +26,5 @@ Figures come from [`tools/xl_data_checks.py`](../../tools/xl_data_checks.py), ru
 | DQ-20 | Product code duplicates in product master exports | W2 DATA F (6), W3 DATA C (21) | – | ambiguous UoM/description | `duplicate_product_code` (Odoo sync) |
 | DQ-21 | Header label "TOTAL Sep-May" but formula sums Sep–Aug | W1 CONSOLIDATED P1 | – | misleading | report shows the period explicitly |
 | DQ-22 | AMC uses only months with records, so a single big month gives a high AMC | W1 AB | business rule | stock-in-months understated | documented (UD-02) |
+| DQ-23 | COUNTED LIST line with an item and date but no quantity in any WH/PROD column | W3 LIST | 13 lines | Excel counts it as a count of 0 and sets the counted date | not imported as a count; `count_line_without_qty` |
+| DQ-24 | Masterlist action/classification for "List excluded" items matches no CONSOLIDATED row (stale manual copy) | W2 Master vs W1 | 29 items | wrong interval on the Masterlist | migration takes the CONSOLIDATED result; listed in parity results |

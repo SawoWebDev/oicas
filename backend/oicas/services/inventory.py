@@ -138,14 +138,19 @@ def apply_filters(rows: list[MasterRow], f: dict) -> list[MasterRow]:
 
 
 # ------------------------------------------------------------------ metrics (F-24 / F-25)
+VERIFIED_STATUSES = ("accurate", "discrepancy")
+
+
 def overall_kpis(rows: list[MasterRow]) -> dict[str, metrics.OverallKpi]:
-    return metrics.overall(metrics.ItemProgress(r.code, r.classification, r.counted, r.has_discrepancy) for r in rows)
+    return metrics.overall(metrics.ItemProgress(r.code, r.classification, r.counted, r.has_discrepancy,
+                                                r.recon_status in VERIFIED_STATUSES) for r in rows)
 
 
 def weekly_kpis(db: Session, rows: list[MasterRow], start: date, end: date) -> dict[str, list[metrics.WeeklyRow]]:
     items_per_class = {k: v.items for k, v in overall_kpis(rows).items()}
     tracked = {r.code for r in rows}
-    events = [metrics.CountEvent(rc.item_code, rc.count_date, rc.classification_at_count, rc.has_discrepancy)
+    events = [metrics.CountEvent(rc.item_code, rc.count_date, rc.classification_at_count, rc.has_discrepancy,
+                                 rc.status in VERIFIED_STATUSES)
               for rc in db.scalars(select(Reconciliation).where(Reconciliation.superseded.is_(False),
                                                                 Reconciliation.count_date >= start,
                                                                 Reconciliation.count_date <= end))

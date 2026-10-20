@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Plan #{{ plan.id }}{% endblock %}
+{% block page_kicker %}Cycle Count Planning{% endblock %}
+{% block page_title %}#{{ plan.id }} {{ plan.name }} {{ pill(plan.status) }}{% endblock %}
+{% block header_actions %}
+  <a class="btn btn-soft btn-sm" href="/planning/plans/{{ plan.id }}/count-sheet.xlsx"><i class="bi bi-file-earmark-excel"></i> Count sheet (Excel)</a>
+  <a class="btn btn-soft btn-sm" href="/reports/count_sheet/export.pdf?plan_id={{ plan.id }}"><i class="bi bi-printer"></i> Printable PDF</a>
+  {% if can('count.enter') and plan.status == 'open' %}
+  <form method="post" action="/counting/sessions" class="d-inline">
+    <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="plan_id" value="{{ plan.id }}">
+    <input type="hidden" name="count_date" value="{{ today.isoformat() }}"><input type="hidden" name="counted_by" value="{{ user.name or user.login }}">
+    <button class="btn btn-primary btn-sm"><i class="bi bi-clipboard-plus"></i> Start counting</button></form>
+  {% endif %}
+{% endblock %}
+{% block content %}
+{% set done = items|selectattr('status', 'equalto', 'counted')|list|length %}
+<div class="row g-3 mb-3">
+  <div class="col-md-3"><div class="card-soft kpi"><div class="kpi-label">Items</div><div class="kpi-value">{{ items|length }}</div></div></div>
+  <div class="col-md-3"><div class="card-soft kpi"><div class="kpi-label">Counted</div><div class="kpi-value">{{ done }}</div></div></div>
+  <div class="col-md-3"><div class="card-soft kpi"><div class="kpi-label">Remaining</div><div class="kpi-value">{{ items|length - done }}</div></div></div>
+  <div class="col-md-3"><div class="card-soft kpi"><div class="kpi-label">Plan date / due</div><div class="kpi-value fs-6">{{ fmt(plan.plan_date, 'date') }} / {{ fmt(plan.due_date, 'date') }}</div></div></div>
+</div>
+<div class="card-soft mb-3">
+  <div class="card-head"><h2>Items</h2>
+    {% if can('plan.manage') %}
+    <div class="d-flex gap-2">
+      <form method="post" action="/planning/plans/{{ plan.id }}/assign" id="assign-form" class="d-flex gap-2">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <select class="form-select form-select-sm w-auto" name="assignee_id"><option value="">Unassign</option>{% for u in users %}<option value="{{ u.id }}">{{ u.name or u.login }}</option>{% endfor %}</select>
+        <button class="btn btn-soft btn-sm">Assign ticked</button></form>
+      {% if plan.status == 'open' %}
+      <form method="post" action="/planning/plans/{{ plan.id }}/status"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="status" value="closed"><button class="btn btn-soft btn-sm" data-confirm="Close this plan?">Close plan</button></form>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+  <div class="table-responsive"><table class="table table-soft table-compact">
+    <thead><tr><th><input class="form-check-input" type="checkbox" data-check-all=".pi-check"></th><th>RM Code</th><th>Description</th><th>Action</th><th>Class</th><th>Plant</th><th>Last count</th><th>Reason</th><th>Assigned</th><th>Status</th></tr></thead>
+    <tbody>{% for pi in items %}{% set r = rows.get(pi.item_code) %}
+      <tr><td><input class="form-check-input pi-check" type="checkbox" name="item_ids" value="{{ pi.id }}" form="assign-form"></td>
+        <td><a class="row-link" href="/items/{{ pi.item_code }}">{{ pi.item_code }}</a></td><td>{{ r.description if r else '' }}</td>
+        <td>{{ pill(r.action if r else None) }}</td><td>{{ pill(r.classification if r else None) }}</td><td>{{ r.plant_location if r else '' }}</td>
+        <td>{{ fmt(r.last_count_date if r else None, 'date') }}</td><td>{{ humanize(pi.reason) }}</td><td>{{ names.get(pi.assigned_to_id, '–') }}</td><td>{{ pill(pi.status) }}</td></tr>
+    {% endfor %}</tbody>
+  </table></div>
+</div>
+<div class="card-soft"><div class="card-head"><h2>Count sessions for this plan</h2></div>
+  <div class="table-responsive"><table class="table table-soft table-compact"><thead><tr><th>Session</th><th>Date</th><th>Counted by</th><th>Status</th><th></th></tr></thead>
+  <tbody>{% for s in sessions %}<tr><td>#{{ s.id }}</td><td>{{ fmt(s.count_date, 'date') }}</td><td>{{ s.counted_by_name }}</td><td>{{ pill(s.status) }}</td><td class="text-end"><a class="btn btn-outline-primary btn-xs" href="/counting/sessions/{{ s.id }}">Open</a></td></tr>
+  {% else %}<tr><td colspan="5" class="muted text-center py-3">No sessions yet.</td></tr>{% endfor %}</tbody></table></div></div>
+{% endblock %}

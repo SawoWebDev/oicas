@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}{{ item.code }}{% endblock %}
+{% block page_kicker %}Inventory Masterlist{% endblock %}
+{% block page_title %}{{ item.code }} <span class="muted fw-normal fs-6">{{ item.description }}</span>{% endblock %}
+{% block header_actions %}<a class="btn btn-soft btn-sm" href="/masterlist"><i class="bi bi-arrow-left"></i> Masterlist</a>{% endblock %}
+{% block content %}
+{% if issues %}
+  <div class="alert alert-warning py-2 small"><b>Data quality:</b>
+    {% for i in issues %}{{ humanize(i.kind) }} ({{ i.detail }}){% if not loop.last %}; {% endif %}{% endfor %}
+    · <a href="/data-quality">review</a></div>
+{% endif %}
+<div class="row g-3 mb-3">
+  <div class="col-xl-4">
+    <div class="card-soft h-100"><div class="card-head"><h2>Item</h2>{% if not item.tracked %}<span class="pill pill-sm tone-gray">not in masterlist</span>{% endif %}</div>
+      <div class="card-body-soft"><dl class="dl-grid">
+        <dt>Odoo product id</dt><dd>{{ item.odoo_product_id or '–' }} <span class="small-note">(Odoo-owned)</span></dd>
+        <dt>Unit of measure</dt><dd>{{ item.uom_name or '–' }}</dd>
+        <dt>Odoo active</dt><dd>{{ fmt(item.odoo_active, 'text') }}</dd>
+        <dt>Last Odoo sync</dt><dd>{{ fmt(item.last_synced_at, 'datetime') }}</dd>
+        <dt>Material section</dt><dd>{{ item.material_section or '–' }}</dd>
+        <dt>ABC family</dt><dd>{{ item.abc_family or '–' }}</dd>
+        <dt>Plant location</dt><dd>{{ item.plant_location or '–' }}</dd>
+        <dt>Remark</dt><dd>{{ item.remark or '–' }}{% if item.is_jit %} <span class="pill pill-sm tone-blue">JIT</span>{% endif %}</dd>
+      </dl></div></div>
+  </div>
+  <div class="col-xl-4">
+    <div class="card-soft h-100"><div class="card-head"><h2>Classification &amp; schedule</h2></div>
+      <div class="card-body-soft">{% if row %}<dl class="dl-grid">
+        <dt>Classification</dt><dd>{{ pill(row.classification) }}</dd>
+        <dt>Action</dt><dd>{{ pill(row.action) }}</dd>
+        <dt>Category</dt><dd>{{ row.category or '–' }} {% if row.declared_type %}<span class="small-note">({{ row.declared_type }})</span>{% endif %}</dd>
+        <dt>AMC</dt><dd class="num">{{ fmt(row.amc, 'qty') }}</dd>
+        <dt>Months with demand</dt><dd>{{ fmt(row.frequency, 'int') }} {% if run %}<span class="small-note">of {{ run.months }}</span>{% endif %}</dd>
+        <dt>Interval</dt><dd>{{ fmt(row.interval_days, 'int') }} days</dd>
+        <dt>Last count</dt><dd>{{ fmt(row.last_count_date, 'date') }}</dd>
+        <dt>Next count</dt><dd>{{ fmt(row.next_due, 'date') }} {{ pill(row.due_status) }}{% if row.overdue_days %} <span class="small-note">{{ row.overdue_days }} days overdue</span>{% endif %}</dd>
+        <dt>Stock in months</dt><dd class="num">{{ fmt(row.stock_in_months, 'qty') }}</dd>
+      </dl>
+      <div class="small-note mt-2">Source: analysis run #{{ run.id if run else '–' }}{% if run %} ({{ run.source }}, rule set v{{ run.rule_set.version }}){% endif %}. Next count = last count + interval.</div>
+      {% endif %}</div></div>
+  </div>
+  <div class="col-xl-4">
+    <div class="card-soft h-100"><div class="card-head"><h2>Latest reconciliation</h2>{% if row and row.recon_id %}<a class="btn btn-soft btn-sm" href="/reconciliation/{{ row.recon_id }}">Open</a>{% endif %}</div>
+      <div class="card-body-soft">{% if row and row.counted %}
+        <table class="table table-soft table-compact mb-2"><thead><tr><th></th><th class="text-end">Physical</th><th class="text-end">Odoo</th><th class="text-end">Variance</th></tr></thead>
+          <tbody>
+            <tr><td>Warehouse</td><td class="text-end num">{{ fmt(row.phys_wh, 'qty') }}</td><td class="text-end num">{{ fmt(row.odoo_wh, 'qty') }}</td><td class="text-end"><span class="num {% if (row.disc_wh or 0) < 0 %}neg{% endif %}">{{ fmt(row.disc_wh, 'qty') }}</span></td></tr>
+            <tr><td>Production</td><td class="text-end num">{{ fmt(row.phys_prod, 'qty') }}</td><td class="text-end num">{{ fmt(row.odoo_prod, 'qty') }}</td><td class="text-end"><span class="num {% if (row.disc_prod or 0) < 0 %}neg{% endif %}">{{ fmt(row.disc_prod, 'qty') }}</span></td></tr>
+          </tbody></table>
+        <div>{{ pill(row.recon_status) }} {{ pill(row.review_status) }} <span class="small-note">counted {{ fmt(row.last_count_date, 'date') }} by {{ row.counted_by }} · Odoo snapshot #{{ row.snapshot_id }}</span></div>
+      {% else %}<div class="muted">Not counted yet. A blank is not a zero: physical quantity and discrepancy stay empty until a count is finalized.</div>{% endif %}</div></div>
+  </div>
+</div>
+
+{% if can('item.edit') %}
+<div class="card-soft mb-3"><div class="card-head"><h2>Edit OICAS-owned attributes</h2><span class="small-note">Odoo-owned fields (code, description, UoM) change only in Odoo.</span></div>
+  <div class="card-body-soft">
+    <form method="post" class="row g-2 align-items-end">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <div class="col-md-2"><label class="form-label small">Material section</label><select class="form-select form-select-sm" name="material_section"><option value=""></option>
+        {% for o in options.material_sections %}<option {% if item.material_section == o %}selected{% endif %}>{{ o }}</option>{% endfor %}</select></div>
+      <div class="col-md-2"><label class="form-label small">ABC family</label><select class="form-select form-select-sm" name="abc_family"><option value=""></option>
+        {% for o in options.abc_families %}<option {% if item.abc_family == o %}selected{% endif %}>{{ o }}</option>{% endfor %}</select></div>
+      <div class="col-md-2"><label class="form-label small">Plant location</label><select class="form-select form-select-sm" name="plant_location"><option value=""></option>
+        {% for o in options.plant_locations %}<option {% if item.plant_location == o|string %}selected{% endif %}>{{ o }}</option>{% endfor %}</select></div>
+      <div class="col-md-3"><label class="form-label small">Remark</label><input class="form-control form-control-sm" name="remark" value="{{ item.remark or '' }}"></div>
+      <div class="col-md-1"><div class="form-check"><input class="form-check-input" type="checkbox" name="is_jit" value="1" id="jit" {% if item.is_jit %}checked{% endif %}><label class="form-check-label small" for="jit">JIT</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="tracked" value="1" id="trk" {% if item.tracked %}checked{% endif %}><label class="form-check-label small" for="trk">Tracked</label></div></div>
+      <div class="col-md-2"><button class="btn btn-primary btn-sm w-100">Save</button></div>
+    </form>
+  </div></div>
+{% endif %}
+
+{% if results %}
+<div class="card-soft mb-3"><div class="card-head"><h2>Demand &amp; ABC basis (run #{{ run.id }})</h2></div>
+  <div class="table-responsive"><table class="table table-soft table-compact">
+    <thead><tr><th>Family</th>{% for m in months %}<th class="text-end">{{ m.strftime('%b %y') }}</th>{% endfor %}<th class="text-end">Total</th><th class="text-end">Rank</th><th class="text-end">Cum %</th><th class="text-end">Freq %</th><th>Class</th></tr></thead>
+    <tbody>{% for r in results %}<tr>
+      <td>{{ r.family }}{% if r.is_primary %} <span class="pill pill-sm tone-blue">primary</span>{% endif %}</td>
+      {% for v in r.monthly %}<td class="text-end num">{{ fmt(v, 'qty') }}</td>{% endfor %}
+      <td class="text-end num">{{ fmt(r.total, 'qty') }}</td><td class="text-end">{{ r.rank }}</td><td class="text-end num">{{ fmt(r.cum_demand_pct, 'pct') }}</td>
+      <td class="text-end num">{{ fmt(r.frequency_pct, 'pct') }}</td><td>{{ r.category }} · {{ pill(r.classification) }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+  <div class="small-note px-3 pb-3">“–” = no demand recorded in that month (not counted towards frequency or AMC); 0 = recorded zero.</div>
+</div>
+{% endif %}
+
+<div class="row g-3">
+  <div class="col-xl-6"><div class="card-soft h-100"><div class="card-head"><h2>Count entries</h2></div>
+    <div class="table-responsive"><table class="table table-soft table-compact">
+      <thead><tr><th>Date</th><th>Session</th><th>Location</th><th>Slot</th><th class="text-end">Qty</th><th>By</th><th>Note</th></tr></thead>
+      <tbody>{% for e, s in hist.entries %}
+        <tr class="{% if e.superseded_by_id or e.superseded_at %}entry-superseded{% endif %}"><td>{{ fmt(s.count_date, 'date') }}</td><td><a href="/counting/sessions/{{ s.id }}">#{{ s.id }}</a> {{ pill(s.status) }}</td>
+          <td>{{ e.bucket|lower }}</td><td>{{ e.slot }}{% if e.round > 1 %}/R{{ e.round }}{% endif %}</td><td class="text-end num">{{ fmt(e.qty, 'qty') }}</td><td>{{ s.counted_by_name }}</td>
+          <td class="small">{{ e.correction_reason or e.remarks or '' }}</td></tr>
+      {% else %}<tr><td colspan="7" class="muted text-center py-3">No counts recorded.</td></tr>{% endfor %}</tbody>
+    </table></div></div></div>
+  <div class="col-xl-6"><div class="card-soft h-100"><div class="card-head"><h2>Reconciliation history</h2></div>
+    <div class="table-responsive"><table class="table table-soft table-compact">
+      <thead><tr><th>Date</th><th class="text-end">Var. WH</th><th class="text-end">Var. PROD</th><th>Status</th><th>Review</th><th></th></tr></thead>
+      <tbody>{% for r in hist.reconciliations %}
+        <tr class="{% if r.superseded %}entry-superseded{% endif %}"><td>{{ fmt(r.count_date, 'date') }}</td><td class="text-end num">{{ fmt(r.disc_wh, 'qty') }}</td><td class="text-end num">{{ fmt(r.disc_prod, 'qty') }}</td>
+          <td>{{ pill(r.status) }}</td><td>{{ pill(r.review_status) }}</td><td><a class="btn btn-outline-primary btn-xs" href="/reconciliation/{{ r.id }}">Detail</a></td></tr>
+      {% else %}<tr><td colspan="6" class="muted text-center py-3">No reconciliations.</td></tr>{% endfor %}</tbody>
+    </table></div></div></div>
+</div>
+{% endblock %}

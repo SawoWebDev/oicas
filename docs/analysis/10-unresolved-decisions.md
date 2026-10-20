@@ -16,4 +16,7 @@ Each decision has a default implemented in OICAS so that work isn't blocked. Eve
 | UD-10 | Code present in several families: which family owns it? | DQ-03 | `item.material_section` (app-owned) chooses the primary family. Results for other families are kept and flagged | – | Planning |
 | UD-11 | Demand month bucketing timezone | Odoo stores UTC | `Asia/Manila` | `APP_TIMEZONE` | IT |
 | UD-12 | Should the "Normal Moving Inventory (NMI)" row in CLASS be used? | CLASS row 14 has no category | ignored | – | Planning |
-| UD-13 | Snapshot staleness threshold for finalising counts | – | 24 h | `odoo.stale_after_hours` | Inventory manager |
+| UD-13 | Snapshot staleness threshold for finalising counts | – | 24 h | `odoo_stale_after_hours` setting | Inventory manager |
+| UD-14 ⚠ | When an item is counted in the warehouse only, should its **uncounted production location**, or a **blank Odoo balance**, be compared as 0 (legacy SUMIFS/XLOOKUP behaviour)? | Legacy flags 1,018 items; OICAS default flags 699 ([parity-results](../parity-results.md)) | Not treated as 0 (Task.md §11: uncounted ≠ zero) | `reconciliation.uncounted_bucket = not_counted`, `reconciliation.missing_odoo = missing` (legacy: `zero`/`zero`) | Inventory manager |
+| UD-15 | Demand basis: include cancelled MO component moves? | Legacy export filter unknown | Exclude cancelled | `odoo_demand_exclude_cancelled` setting | Planning |
+| UD-16 | Demand quantities are taken in the move's UoM (`product_uom_qty`), like the legacy export. Should they be converted to the product UoM? | same as legacy | as legacy (no conversion) | – | Planning |

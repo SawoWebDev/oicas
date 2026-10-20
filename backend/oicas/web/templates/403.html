@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}No access{% endblock %}
+{% block body %}
+<div class="login-wrap">
+  <div class="card-soft login-card text-center">
+    <img src="/static/img/sawo-logo.png" alt="SAWO">
+    <h1 class="h5 fw-bold mt-3">You don't have access to this page</h1>
+    <p class="muted small">This action requires: <b>{{ perm }}</b>. Ask an OICAS administrator if you need it.</p>
+    <a class="btn btn-primary btn-sm" href="/">Back to dashboard</a>
+  </div>
+</div>
+{% endblock %}

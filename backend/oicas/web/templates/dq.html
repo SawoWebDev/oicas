@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% from "_macros.html" import filter_form, pagination, sort_th %}
+{% block header_actions %}
+  {% if can('dq.resolve') %}<form method="post" action="/data-quality/scan"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn btn-soft btn-sm"><i class="bi bi-arrow-clockwise"></i> Re-run masterlist checks</button></form>{% endif %}
+{% endblock %}
+{% block content %}
+<p class="muted small mb-3">Problems are flagged, never silently corrected. Sync-detected issues close automatically when Odoo no longer shows them.</p>
+<div class="row g-3 mb-3">
+  {% for kind, n in counts[:6] %}
+  <div class="col-6 col-md-4 col-xl-2"><div class="card-soft kpi"><a href="?kind={{ kind }}">
+    <div class="kpi-top"><span class="kpi-icon tone-orange"><i class="bi bi-exclamation-diamond"></i></span></div>
+    <div class="kpi-label">{{ humanize(kind) }}</div><div class="kpi-value">{{ "{:,}".format(n) }}</div></a></div></div>
+  {% endfor %}
+</div>
+<div class="card-soft">
+  <div class="card-head"><h2>{{ res.title }} ({{ "{:,}".format(pg.count) }})</h2>
+    <div class="d-flex gap-2"><a class="btn btn-soft btn-sm" href="/reports/data_quality/export.xlsx?{{ export_q }}"><i class="bi bi-file-earmark-excel"></i> Excel</a></div></div>
+  <div class="card-body-soft border-bottom">{{ filter_form(filters, params) }}</div>
+  <div class="table-responsive"><table class="table table-soft table-compact">
+    <thead><tr>{% for c in res.columns %}{{ sort_th(c, query, request) }}{% endfor %}<th></th></tr></thead>
+    <tbody>{% for row in pg.rows %}<tr>
+      <td title="{{ kinds.get(row.kind, '') }}">{{ humanize(row.kind) }}</td>
+      <td class="mono">{% if '/' not in row.ref and not row.ref.isdigit() %}<a href="/items/{{ row.ref }}">{{ row.ref }}</a>{% else %}{{ row.ref }}{% endif %}</td>
+      <td class="small">{{ row.detail }}</td><td>{{ pill(row.severity) }}</td><td>{{ pill(row.status) }}</td><td class="small">{{ row.source }}</td>
+      <td class="small">{{ fmt(row.first_seen_at, 'datetime') }}</td><td class="small">{{ fmt(row.last_seen_at, 'datetime') }}</td>
+      <td class="text-end">{% if can('dq.resolve') %}
+        <form method="post" action="/data-quality/{{ row.id }}" class="d-flex gap-1 justify-content-end"><input type="hidden" name="csrf" value="{{ csrf }}">
+          {% if row.status == 'open' %}<button class="btn btn-soft btn-xs" name="status" value="resolved">Resolve</button><button class="btn btn-link btn-xs" name="status" value="ignored">Ignore</button>
+          {% else %}<button class="btn btn-soft btn-xs" name="status" value="open">Reopen</button>{% endif %}</form>{% endif %}</td>
+    </tr>{% else %}<tr><td colspan="9" class="muted text-center py-4">No exceptions for these filters.</td></tr>{% endfor %}</tbody>
+  </table></div>
+  <div class="table-foot"><span>{% if pg.count %}Showing {{ pg.start }} to {{ pg.end }} of {{ pg.count }}{% endif %}</span>{{ pagination(pg, query) }}</div>
+</div>
+{% endblock %}

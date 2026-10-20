@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Reconciliation #{{ r.id }}{% endblock %}
+{% block page_kicker %}Odoo Reconciliation{% endblock %}
+{% block page_title %}{{ r.item_code }} · {{ fmt(r.count_date, 'date') }} {{ pill(r.status) }} {{ pill(r.review_status) }}{% endblock %}
+{% block header_actions %}<a class="btn btn-soft btn-sm" href="/items/{{ r.item_code }}"><i class="bi bi-box-seam"></i> Item</a>{% endblock %}
+{% block content %}
+{% if r.superseded %}<div class="alert alert-secondary py-2 small">This result was superseded{% if newer %} by <a href="/reconciliation/{{ newer.id }}">#{{ newer.id }}</a>{% endif %} after a correction or recount. It is kept for history.</div>{% endif %}
+<div class="row g-3 mb-3">
+  <div class="col-xl-7"><div class="card-soft h-100"><div class="card-head"><h2>{{ item.description if item else '' }}</h2></div>
+    <div class="table-responsive"><table class="table table-soft">
+      <thead><tr><th>Location</th><th class="text-end">Physical</th><th class="text-end">Odoo</th><th class="text-end">Variance (physical − Odoo)</th></tr></thead>
+      <tbody>
+        <tr><td>Warehouse</td><td class="text-end num">{{ fmt(r.phys_wh, 'qty') }}</td><td class="text-end num">{{ fmt(r.odoo_wh, 'qty') }}</td><td class="text-end num fw-semibold {% if (r.disc_wh or 0) < 0 %}neg{% endif %}">{{ fmt(r.disc_wh, 'qty') }}</td></tr>
+        <tr><td>Production / Pre-production</td><td class="text-end num">{{ fmt(r.phys_prod, 'qty') }}</td><td class="text-end num">{{ fmt(r.odoo_prod, 'qty') }}</td><td class="text-end num fw-semibold {% if (r.disc_prod or 0) < 0 %}neg{% endif %}">{{ fmt(r.disc_prod, 'qty') }}</td></tr>
+      </tbody></table></div>
+    <div class="card-body-soft small-note">
+      “–” physical = location not counted (not a zero). “–” Odoo = no balance in the snapshot. UoM: {{ item.uom_name if item else '–' }}.
+      Snapshot {% if snap %}#{{ snap.id }} · {{ snap.label }} · {{ fmt(snap.taken_at, 'datetime') }}{% else %}none{% endif %} · rule set id {{ r.rule_set_id }} · computed {{ fmt(r.computed_at, 'datetime') }} · class at count: {{ r.classification_at_count or '–' }}.
+    </div></div></div>
+  <div class="col-xl-5"><div class="card-soft h-100"><div class="card-head"><h2>Review</h2></div>
+    <div class="card-body-soft">
+      {% if can('discrepancy.review') and not r.superseded %}
+      <form method="post" action="/reconciliation/{{ r.id }}/review" class="mb-3">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <div class="mb-2"><textarea class="form-control form-control-sm" name="note" rows="2" placeholder="Investigation note / resolution"></textarea></div>
+        <div class="row g-2 mb-2"><div class="col"><select class="form-select form-select-sm" name="assignee_id"><option value="">No assignee</option>{% for u in assignees %}<option value="{{ u.id }}">{{ u.name or u.login }}</option>{% endfor %}</select></div></div>
+        <div class="d-flex flex-wrap gap-2">
+          <button class="btn btn-soft btn-sm" name="action" value="comment">Add note</button>
+          <button class="btn btn-soft btn-sm" name="action" value="investigating">Investigating</button>
+          <button class="btn btn-soft btn-sm" name="action" value="recount_requested">Request recount</button>
+          <button class="btn btn-primary btn-sm" name="action" value="resolved">Resolve</button>
+          {% if r.review_status == 'resolved' %}<button class="btn btn-link btn-sm" name="action" value="reopened">Reopen</button>{% endif %}
+        </div>
+        <div class="small-note mt-2">Resolving records the explanation only. Any stock adjustment must be done in Odoo by the authorised user.</div>
+      </form>
+      {% if r.review_status == 'recount_requested' and can('count.enter') %}
+        <form method="post" action="/counting/sessions" class="mb-3"><input type="hidden" name="csrf" value="{{ csrf }}">
+          <input type="hidden" name="recount_of" value="{{ r.id }}"><input type="hidden" name="count_date" value="{{ today.isoformat() }}">
+          <input type="hidden" name="counted_by" value="{{ user.name or user.login }}"><input type="hidden" name="remarks" value="Recount of {{ r.item_code }} ({{ r.count_date }})">
+          <button class="btn btn-outline-primary btn-sm w-100"><i class="bi bi-arrow-repeat"></i> Start recount session</button></form>
+      {% endif %}
+      {% endif %}
+      <div class="timeline">
+        {% for n in notes %}<div class="ev small"><b>{{ users.get(n.created_by_id, 'system') }}</b> · {{ humanize(n.action) }}{% if n.assigned_to_id %} → {{ users.get(n.assigned_to_id) }}{% endif %}
+          <div>{{ n.note }}</div><div class="small-note">{{ fmt(n.created_at, 'datetime') }}</div></div>
+        {% else %}<div class="muted small">No review notes yet.</div>{% endfor %}
+      </div>
+    </div></div></div>
+</div>
+<div class="card-soft"><div class="card-head"><h2>Count entries on {{ fmt(r.count_date, 'date') }}</h2></div>
+  <div class="table-responsive"><table class="table table-soft table-compact">
+    <thead><tr><th>Session</th><th>Status</th><th>Counted by</th><th>Location</th><th>Slot</th><th class="text-end">Qty</th><th>Note</th></tr></thead>
+    <tbody>{% for e, s in entries %}<tr class="{% if e.superseded_by_id or e.superseded_at %}entry-superseded{% endif %}">
+      <td><a href="/counting/sessions/{{ s.id }}">#{{ s.id }}</a></td><td>{{ pill(s.status) }}</td><td>{{ s.counted_by_name }}</td><td>{{ e.bucket|title }}</td><td>{{ e.slot }}</td>
+      <td class="text-end num">{{ fmt(e.qty, 'qty') }}</td><td class="small">{{ e.correction_reason or e.remarks or '' }}</td></tr>{% endfor %}</tbody>
+  </table></div></div>
+{% endblock %}

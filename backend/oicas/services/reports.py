@@ -312,6 +312,7 @@ def r_disc(db: Session, p: dict) -> ReportResult:
 KPI_COLUMNS = [Column("classification", "Class"), Column("items", "# of items", "int", True),
                Column("counted", "# counted", "int", True), Column("remaining", "Remaining", "int", True),
                Column("discrepancies", "# of discrepancy", "int", True), Column("accurate", "Accurate", "int", True),
+               Column("unverified", "Not verifiable (no Odoo balance)", "int", True),
                Column("completion", "Count completion", "pct"),
                Column("accuracy", "Inventory accuracy % (count based)", "pct"),
                Column("overall_accuracy", "Overall accuracy", "pct"), Column("discrepancy_rate", "Discrepancy rate %", "pct")]
@@ -328,7 +329,8 @@ def r_overall(db: Session, p: dict) -> ReportResult:
     k = inventory.overall_kpis(rows)
     out = [v.as_dict() for v in k.values()] + [metrics.total_of(k).as_dict()]
     return ReportResult("progress_overall", "Overall Cycle Count Progress", KPI_COLUMNS, out, [],
-                        {**_master_meta(ds, db, p), "note": "# counted = items with at least one finalized count (all time)."})
+                        {**_master_meta(ds, db, p), "note": "# counted = items with at least one finalized count (all time). "
+                         "Accuracy and discrepancy rate use counts that could be compared with an Odoo balance."})
 
 
 # 7 ------------------------------------------------------------------------------------------
@@ -343,7 +345,7 @@ def r_weekly(db: Session, p: dict) -> ReportResult:
     cols = [Column("classification", "Class"), Column("week_ending", "Date (week ending)", "date"),
             Column("week_label", "Week #"), Column("total_counted", "Total counted", "int", True),
             Column("discrepancy", "Discrepancy", "int", True), Column("accurate", "Accurate items", "int", True),
-            Column("accuracy", "Accuracy %", "pct"), Column("cumulative_counted", "Cumulative counted", "int"),
+            Column("unverified", "No Odoo balance", "int", True), Column("accuracy", "Accuracy %", "pct"), Column("cumulative_counted", "Cumulative counted", "int"),
             Column("completion", "Completion %", "pct")]
     return ReportResult("progress_weekly", "Weekly Cycle Count Progress", cols, rows, [],
                         {"period": f"{start} – {end}", "note": "Weeks run Monday–Sunday; week # = Excel WEEKNUM(date, 2)."})
@@ -502,20 +504,25 @@ def r_trend(db: Session, p: dict) -> ReportResult:
     we = metrics.week_end(start)
     while we <= metrics.week_end(end):
         weeks[we] = {"week_ending": we, "week_label": f"WK#{metrics.excel_weeknum_monday(we)}", "counted": 0,
-                     "discrepancies": 0, "net_variance": 0.0, "abs_variance": 0.0}
+                     "unverified": 0, "discrepancies": 0, "net_variance": 0.0, "abs_variance": 0.0}
         we += timedelta(days=7)
     for r in db.scalars(q):
         w = weeks[metrics.week_end(r.count_date)]
         w["counted"] += 1
+        if r.status not in inventory.VERIFIED_STATUSES:
+            w["unverified"] += 1
+            continue
         w["discrepancies"] += int(r.has_discrepancy)
         w["net_variance"] += (r.disc_wh or 0) + (r.disc_prod or 0)
         w["abs_variance"] += abs(r.disc_wh or 0) + abs(r.disc_prod or 0)
     rows = list(weeks.values())
     for w in rows:
-        w["accuracy"] = metrics.ratio(w["counted"] - w["discrepancies"], w["counted"])
-        w["discrepancy_rate"] = metrics.ratio(w["discrepancies"], w["counted"])
+        v = w["counted"] - w["unverified"]
+        w["accuracy"] = metrics.ratio(v - w["discrepancies"], v)
+        w["discrepancy_rate"] = metrics.ratio(w["discrepancies"], v)
     cols = [Column("week_ending", "Week ending", "date"), Column("week_label", "Week #"),
-            Column("counted", "Counted", "int", True), Column("discrepancies", "Discrepancies", "int", True),
+            Column("counted", "Counted", "int", True), Column("unverified", "No Odoo balance", "int", True),
+            Column("discrepancies", "Discrepancies", "int", True),
             Column("accuracy", "Accuracy %", "pct"), Column("discrepancy_rate", "Discrepancy rate", "pct"),
             Column("net_variance", "Net qty variance", "qty", True), Column("abs_variance", "Abs. qty variance", "qty", True)]
     return ReportResult("accuracy_trend", "Inventory Accuracy and Variance Trends", cols, rows, [],

@@ -24,44 +24,57 @@ class ItemProgress:
     classification: str | None
     counted: bool  # has at least one finalized count (Master K <> "")
     has_discrepancy: bool  # latest count has a discrepancy (Master U = 1)
+    verified: bool = True  # latest count could be compared with Odoo (False: no Odoo balance)
 
 
 @dataclass
 class OverallKpi:
+    """Legacy PROGRESS-overall KPIs.
+
+    ``unverified`` = counted items whose latest count had no Odoo balance to compare with. They
+    count towards completion but not towards accuracy (they're neither accurate nor discrepant).
+    With the legacy rule set (missing Odoo = 0) ``unverified`` is always 0, so the formulas reduce
+    exactly to the workbook's.
+    """
     classification: str
     items: int
     counted: int
     discrepancies: int
+    unverified: int = 0
 
     @property
     def remaining(self) -> int:
         return self.items - self.counted
 
     @property
+    def verified(self) -> int:
+        return self.counted - self.unverified
+
+    @property
     def accurate(self) -> int:
-        return self.counted - self.discrepancies
+        return self.verified - self.discrepancies
 
     @property
     def completion(self) -> float | None:  # # counted / # of items
         return ratio(self.counted, self.items)
 
     @property
-    def accuracy(self) -> float | None:  # (# counted − # disc) / # counted
-        return ratio(self.counted - self.discrepancies, self.counted)
+    def accuracy(self) -> float | None:  # (# counted − # disc) / # counted   [verified counts]
+        return ratio(self.accurate, self.verified)
 
     @property
     def overall_accuracy(self) -> float | None:  # (# counted − # disc) / # of items
-        return ratio(self.counted - self.discrepancies, self.items)
+        return ratio(self.accurate, self.items)
 
     @property
-    def discrepancy_rate(self) -> float | None:  # # disc / # counted
-        return ratio(self.discrepancies, self.counted)
+    def discrepancy_rate(self) -> float | None:  # # disc / # counted   [verified counts]
+        return ratio(self.discrepancies, self.verified)
 
     def as_dict(self) -> dict:
         return {
             "classification": self.classification, "items": self.items, "counted": self.counted,
             "remaining": self.remaining, "discrepancies": self.discrepancies, "accurate": self.accurate,
-            "completion": self.completion, "accuracy": self.accuracy,
+            "unverified": self.unverified, "completion": self.completion, "accuracy": self.accuracy,
             "overall_accuracy": self.overall_accuracy, "discrepancy_rate": self.discrepancy_rate,
         }
 
@@ -75,7 +88,9 @@ def overall(items: Iterable[ItemProgress], classes: Iterable[str] = MOVEMENT_CLA
         k.items += 1
         if it.counted:
             k.counted += 1
-            if it.has_discrepancy:
+            if not it.verified:
+                k.unverified += 1
+            elif it.has_discrepancy:
                 k.discrepancies += 1
     return out
 
@@ -86,6 +101,7 @@ def total_of(kpis: dict[str, OverallKpi]) -> OverallKpi:
         t.items += k.items
         t.counted += k.counted
         t.discrepancies += k.discrepancies
+        t.unverified += k.unverified
     return t
 
 
@@ -108,6 +124,7 @@ class CountEvent:
     count_date: date
     classification: str | None
     has_discrepancy: bool
+    verified: bool = True
 
 
 @dataclass
@@ -119,14 +136,15 @@ class WeeklyRow:
     discrepancy: int
     cumulative_counted: int
     class_items: int
+    unverified: int = 0
 
     @property
     def accurate(self) -> int:
-        return self.total_counted - self.discrepancy
+        return self.total_counted - self.unverified - self.discrepancy
 
     @property
     def accuracy(self) -> float | None:
-        return ratio(self.accurate, self.total_counted)
+        return ratio(self.accurate, self.total_counted - self.unverified)
 
     @property
     def completion(self) -> float | None:
@@ -137,7 +155,8 @@ class WeeklyRow:
         return {
             "classification": self.classification, "week_ending": self.week_ending,
             "week_label": self.week_label, "total_counted": self.total_counted,
-            "discrepancy": self.discrepancy, "accurate": self.accurate, "accuracy": self.accuracy,
+            "discrepancy": self.discrepancy, "accurate": self.accurate, "unverified": self.unverified,
+            "accuracy": self.accuracy,
             "cumulative_counted": self.cumulative_counted, "completion": self.completion,
         }
 
@@ -156,12 +175,15 @@ def weekly(
     """
     buckets: dict[tuple[str, date], set[tuple[str, date]]] = defaultdict(set)
     disc: dict[tuple[str, date], set[tuple[str, date]]] = defaultdict(set)
+    unver: dict[tuple[str, date], set[tuple[str, date]]] = defaultdict(set)
     for e in events:
         if e.classification is None or not (start <= e.count_date <= end):
             continue
         key = (e.classification, week_end(e.count_date))
         buckets[key].add((e.code, e.count_date))
-        if e.has_discrepancy:
+        if not e.verified:
+            unver[key].add((e.code, e.count_date))
+        elif e.has_discrepancy:
             disc[key].add((e.code, e.count_date))
     out: dict[str, list[WeeklyRow]] = {}
     first, last = week_end(start), week_end(end)
@@ -171,7 +193,7 @@ def weekly(
             n = len(buckets.get((c, we), ()))
             cum += n
             rows.append(WeeklyRow(c, we, f"WK#{excel_weeknum_monday(we)}", n, len(disc.get((c, we), ())), cum,
-                                  items_per_class.get(c, 0)))
+                                  items_per_class.get(c, 0), len(unver.get((c, we), ()))))
             we += timedelta(days=7)
         out[c] = rows
     return out

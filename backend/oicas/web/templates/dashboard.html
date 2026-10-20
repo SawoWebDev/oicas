@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block page_kicker %}Happy working{% endblock %}
+{% block page_title %}{{ user.name or user.login }}{% endblock %}
+{% block header_actions %}
+  {% if can('plan.manage') %}<a class="btn btn-soft btn-sm" href="/planning?due_status=overdue"><i class="bi bi-calendar2-check"></i> Plan counts</a>{% endif %}
+  {% if can('count.enter') %}<a class="btn btn-primary btn-sm" href="/counting"><i class="bi bi-plus-lg"></i> New Count</a>{% endif %}
+{% endblock %}
+{% block content %}
+{% macro kpi(icon, tone, label, value, href, sub='') -%}
+  <div class="col-6 col-md-4 col-xl-2"><div class="card-soft kpi"><a href="{{ href }}">
+    <div class="kpi-top"><span class="kpi-icon {{ tone }}"><i class="bi {{ icon }}"></i></span></div>
+    <div class="kpi-label">{{ label }}</div><div class="kpi-value">{{ value }}</div>
+    {% if sub %}<div class="kpi-sub">{{ sub }}</div>{% endif %}</a></div></div>
+{%- endmacro %}
+
+<div class="card-soft mb-3 no-print"><div class="card-body-soft py-2">
+  <form method="get" class="filter-bar" data-autosubmit>
+    {% for name, label in [('material_section', 'Material section'), ('abc_family', 'ABC family'), ('plant_location', 'Plant location')] %}
+      <div class="f"><label>{{ label }}</label>
+        <select class="form-select form-select-sm" name="{{ name }}"><option value="">All</option>
+          {% for o in options[name] %}<option value="{{ o }}" {% if f.get(name) == o|string %}selected{% endif %}>{{ o }}</option>{% endfor %}
+        </select></div>
+    {% endfor %}
+    {% if f %}<div class="f" style="min-width:auto"><a class="btn btn-link btn-sm" href="/">Reset</a></div>{% endif %}
+    <div class="ms-auto small-note align-self-center">{% if run_period %}Classification from analysis run #{{ run_id }} · {{ run_period }}{% else %}No approved analysis run yet{% endif %}</div>
+  </form>
+</div></div>
+
+<div class="row g-3 mb-3">
+  {{ kpi('bi-box-seam', 'tone-blue', 'Total active items', "{:,}".format(total.items), '/masterlist?' ~ fq) }}
+  {{ kpi('bi-check2-circle', 'tone-green', 'Items counted', "{:,}".format(total.counted), '/masterlist?counted=yes&' ~ fq, fmt(total.completion, 'pct') ~ ' completion') }}
+  {{ kpi('bi-hourglass-split', 'tone-gray', 'Items remaining', "{:,}".format(total.remaining), '/masterlist?counted=no&' ~ fq) }}
+  {{ kpi('bi-bullseye', 'tone-purple', 'Inventory accuracy', fmt(total.accuracy, 'pct'), '/reports/progress_overall?' ~ fq, 'count based') }}
+  {{ kpi('bi-exclamation-triangle', 'tone-red', 'Items with discrepancy', "{:,}".format(total.discrepancies), '/masterlist?discrepancy=yes&' ~ fq, fmt(total.discrepancy_rate, 'pct') ~ ' of counted') }}
+  {{ kpi('bi-alarm', 'tone-orange', 'Overdue counts', "{:,}".format(due.get('overdue', 0) + due.get('due_today', 0)), '/planning?due_status=overdue&' ~ fq, "{:,}".format(due.get('upcoming', 0)) ~ ' upcoming (7 days)') }}
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-xl-7">
+    <div class="card-soft h-100">
+      <div class="card-head"><h2>Overall progress by movement class</h2><a class="btn btn-soft btn-sm" href="/reports/progress_overall?{{ fq }}">Report</a></div>
+      <div class="table-responsive">
+        <table class="table table-soft table-compact">
+          <thead><tr><th>KPI</th>{% for c in classes %}<th class="text-end"><a class="sort-link" href="/masterlist?classification={{ c|urlencode }}&{{ fq }}">{{ c }}</a></th>{% endfor %}<th class="text-end">Total</th></tr></thead>
+          <tbody>
+          {% for key, label, kind in [('items', '# of items', 'int'), ('counted', '# counted', 'int'), ('discrepancies', '# of discrepancy', 'int'),
+                                       ('unverified', 'Counted, no Odoo balance', 'int'),
+                                       ('completion', 'Count completion', 'pct'), ('accuracy', 'Inventory accuracy % (count based)', 'pct'),
+                                       ('overall_accuracy', 'Overall accuracy', 'pct'), ('discrepancy_rate', 'Discrepancy rate %', 'pct')] %}
+            <tr><td>{{ label }}</td>{% for c in classes %}<td class="text-end num">{{ fmt(kpis[c][key], kind) }}</td>{% endfor %}<td class="text-end num fw-semibold">{{ fmt(total[key], kind) }}</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-5">
+    <div class="card-soft h-100">
+      <div class="card-head"><h2>Completion &amp; accuracy</h2></div>
+      <div class="card-body-soft"><div class="chart-box"><canvas data-chart="classes" data-source="dash-data"></canvas></div></div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-xl-7">
+    <div class="card-soft h-100">
+      <div class="card-head"><h2>Weekly progress (last 8 weeks)</h2><a class="btn btn-soft btn-sm" href="/reports/progress_weekly">Weekly report</a></div>
+      <div class="card-body-soft"><div class="chart-box"><canvas data-chart="weekly" data-source="dash-data"></canvas></div></div>
+    </div>
+  </div>
+  <div class="col-xl-5">
+    <div class="card-soft h-100">
+      <div class="card-head"><h2>ABC category distribution</h2><a class="btn btn-soft btn-sm" href="/analysis/abc">ABC analysis</a></div>
+      <div class="card-body-soft"><div class="chart-box"><canvas data-chart="doughnut" data-key="abc" data-source="dash-data"></canvas></div></div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-xl-4">
+    <div class="card-soft h-100">
+      <div class="card-head"><h2>Progress by plant location</h2></div>
+      <div class="table-responsive"><table class="table table-soft table-compact">
+        <thead><tr><th>Plant</th><th class="text-end">Items</th><th class="text-end">Counted</th><th style="min-width:110px">Completion</th></tr></thead>
+        <tbody>{% for plant, v in by_plant %}
+          <tr><td><a href="/masterlist?plant_location={{ (plant if plant != '(none)' else '')|urlencode }}">{{ plant }}</a></td><td class="text-end num">{{ "{:,}".format(v[0]) }}</td><td class="text-end num">{{ "{:,}".format(v[1]) }}</td>
+            <td><div class="progress"><div class="progress-bar" style="width: {{ (100 * v[1] / v[0]) if v[0] else 0 }}%"></div></div></td></tr>
+        {% else %}<tr><td colspan="4" class="muted text-center py-3">No items.</td></tr>{% endfor %}</tbody>
+      </table></div>
+    </div>
+  </div>
+  <div class="col-xl-4">
+    <div class="card-soft h-100">
+      <div class="card-head"><h2>Counts by person (30 days)</h2></div>
+      <div class="card-body-soft">
+        {% for who, n in by_counter %}
+          <div class="d-flex align-items-center gap-2 mb-2"><span class="avatar">{{ who[:1]|upper }}</span><div class="flex-grow-1">{{ who }}</div><b class="num">{{ "{:,}".format(n) }}</b></div>
+        {% else %}<div class="muted small">No finalized counts in the last 30 days.</div>{% endfor %}
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-4">
+    <div class="card-soft h-100">
+      <div class="card-head"><h2>Odoo sync &amp; data quality</h2><a class="btn btn-soft btn-sm" href="/data-quality">Open</a></div>
+      <div class="card-body-soft">
+        {% set s = sync_state %}
+        <div class="mb-3 small">
+          {% if s.snapshot %}<div>Latest snapshot <b>#{{ s.snapshot.id }}</b> · {{ fmt(s.snapshot.taken_at, 'datetime') }}
+            {% if s.stale %}<span class="pill pill-sm tone-red">stale</span>{% else %}<span class="pill pill-sm tone-green">current</span>{% endif %}</div>
+            <div class="small-note">{{ s.snapshot.label }} · {{ "{:,}".format(s.snapshot.line_count) }} balances</div>
+          {% else %}<div class="muted">No Odoo snapshot yet.</div>{% endif %}
+          {% if s.last_run %}<div class="small-note">Last sync #{{ s.last_run.id }} {{ s.last_run.status }} {{ fmt(s.last_run.started_at, 'datetime') }}</div>{% endif %}
+        </div>
+        {% for kind, n in dq_kinds %}
+          <div class="d-flex justify-content-between small mb-1"><a href="/data-quality?kind={{ kind }}">{{ humanize(kind) }}</a><span class="pill pill-sm tone-orange">{{ n }}</span></div>
+        {% else %}<div class="muted small">No open data-quality issues.</div>{% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card-soft mt-3">
+  <div class="card-head"><h2>Recent activity</h2>{% if can('audit.view') %}<a class="btn btn-soft btn-sm" href="/audit">Audit trail</a>{% endif %}</div>
+  <div class="card-body-soft">
+    {% for e in recent %}
+      <div class="d-flex gap-2 mb-2">
+        <span class="avatar">{{ (e.user_login or '?')[:1]|upper }}</span>
+        <div class="small"><b>{{ e.user_login or 'system' }}</b> · {{ humanize(e.action) }}{% if e.entity_id %} <span class="mono">{{ e.entity }} #{{ e.entity_id }}</span>{% endif %}
+          <div class="small-note">{{ fmt(e.at, 'datetime') }}</div></div>
+      </div>
+    {% else %}<div class="muted small">No activity yet.</div>{% endfor %}
+  </div>
+</div>
+<script type="application/json" id="dash-data">{{ charts|safe }}</script>
+{% endblock %}

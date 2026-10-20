@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Log in{% endblock %}
+{% block body %}
+<div class="login-wrap">
+  <div class="card-soft login-card">
+    <div class="text-center mb-4">
+      <img src="/static/img/sawo-logo.png" alt="SAWO">
+      <h1 class="h5 fw-bold mt-3 mb-1">Inventory Control &amp; Analytics</h1>
+      <div class="muted small">OICAS · log in with your Odoo account</div>
+    </div>
+    {% if settings.odoo_mode == 'fake' %}
+      <div class="env-banner"><i class="bi bi-cone-striped"></i><span>Development fixture: use <b>admin</b>, <b>manager</b>, <b>counter</b> or <b>viewer</b> with password <b>demo</b>.</span></div>
+    {% endif %}
+    {% if error %}<div class="alert alert-danger py-2 small">{{ error }}</div>{% endif %}
+    <form method="post" action="/login" novalidate>
+      <input type="hidden" name="next" value="{{ next }}">
+      <div class="mb-3">
+        <label class="form-label small fw-semibold" for="login">Odoo email / login</label>
+        <input class="form-control" id="login" name="login" type="text" autocomplete="username" value="{{ login }}" required autofocus>
+      </div>
+      <div class="mb-4">
+        <label class="form-label small fw-semibold" for="password">Odoo password</label>
+        <input class="form-control" id="password" name="password" type="password" autocomplete="current-password" required>
+      </div>
+      <button class="btn btn-primary w-100 py-2" type="submit" name="method" value="odoo"><i class="bi bi-box-arrow-in-right me-1"></i> Log in with Odoo</button>
+      <details class="mt-3">
+        <summary class="small-note">Emergency administrator login</summary>
+        <button class="btn btn-soft btn-sm w-100 mt-2" type="submit" name="method" value="local">Log in with local break-glass account</button>
+      </details>
+    </form>
+    <p class="small-note text-center mt-3 mb-0">Your password is checked by Odoo and is not stored in this system.</p>
+  </div>
+</div>
+{% endblock %}

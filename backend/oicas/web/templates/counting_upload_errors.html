@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block page_kicker %}Physical Counting{% endblock %}
+{% block page_title %}Upload rejected{% endblock %}
+{% block content %}
+<div class="card-soft"><div class="card-head"><h2>{{ filename }} was not imported</h2><a class="btn btn-soft btn-sm" href="/counting">Back</a></div>
+  <div class="card-body-soft">
+    <p class="small">Nothing was saved. Fix these rows in the sheet and upload it again:</p>
+    <ul class="small">{% for e in errors[:200] %}<li>{{ e }}</li>{% endfor %}</ul>
+    {% if errors|length > 200 %}<p class="small-note">… and {{ errors|length - 200 }} more.</p>{% endif %}
+  </div></div>
+{% endblock %}

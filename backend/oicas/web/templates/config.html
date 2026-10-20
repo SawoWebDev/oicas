@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}System Configuration{% endblock %}
+{% block page_kicker %}Governance{% endblock %}
+{% block page_title %}System Configuration{% endblock %}
+{% block content %}
+<ul class="nav nav-tabs mb-3">
+  {% for k, label in [('rules', 'Rule sets'), ('locations', 'Odoo locations'), ('settings', 'Settings'), ('users', 'Users & roles'), ('imports', 'Imports')] %}
+    <li class="nav-item"><a class="nav-link {% if tab == k %}active{% endif %}" href="?tab={{ k }}">{{ label }}</a></li>
+  {% endfor %}
+</ul>
+
+{% if tab == 'rules' %}
+<div class="row g-3">
+  <div class="col-xl-5"><div class="card-soft h-100"><div class="card-head"><h2>Versions</h2><span class="small-note">Active today: v{{ active_rs.version }}</span></div>
+    <div class="table-responsive"><table class="table table-soft table-compact"><thead><tr><th>Version</th><th>Name</th><th>Effective from</th><th>Created</th></tr></thead>
+      <tbody>{% for r in rule_sets %}<tr {% if r.id == active_rs.id %}class="fw-semibold"{% endif %}><td>v{{ r.version }}{% if r.id == active_rs.id %} <span class="pill pill-sm tone-green">active</span>{% endif %}</td>
+        <td>{{ r.name }}<div class="small-note">{{ r.notes or '' }}</div></td><td>{{ fmt(r.effective_from, 'date') }}</td><td class="small">{{ fmt(r.created_at, 'datetime') }}</td></tr>{% endfor %}</tbody></table></div>
+    <div class="card-body-soft small-note">Rule sets are never edited: saving creates a new version. Analysis runs and reconciliations keep the version they were calculated with, so past reports stay reproducible.</div>
+  </div></div>
+  <div class="col-xl-7"><div class="card-soft"><div class="card-head"><h2>New version (based on active)</h2></div><div class="card-body-soft">
+    {% set p = active_params %}
+    <form method="post" action="/config/rulesets" class="row g-2">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <div class="col-md-6"><label class="form-label small">Name</label><input class="form-control form-control-sm" name="name" required></div>
+      <div class="col-md-3"><label class="form-label small">Effective from</label><input class="form-control form-control-sm" type="date" name="effective_from" value="{{ today.isoformat() }}" required></div>
+      <div class="col-12 small fw-semibold mt-2">ABC thresholds (%)</div>
+      <div class="col-md-3"><label class="form-label small">Qty A if cum &lt;</label><input class="form-control form-control-sm" name="qty_a_below" value="{{ p.abc.qty_a_below * 100 }}"></div>
+      <div class="col-md-3"><label class="form-label small">Qty C if cum ≥</label><input class="form-control form-control-sm" name="qty_c_from" value="{{ p.abc.qty_c_from * 100 }}"></div>
+      <div class="col-md-3"><label class="form-label small">Freq A if &gt;</label><input class="form-control form-control-sm" name="freq_a_above" value="{{ p.abc.freq_a_above * 100 }}"></div>
+      <div class="col-md-3"><label class="form-label small">Freq C if ≤</label><input class="form-control form-control-sm" name="freq_c_upto" value="{{ p.abc.freq_c_upto * 100 }}"></div>
+      <div class="col-md-6"><label class="form-label small">ABC ordering</label><select class="form-select form-select-sm" name="ordering">
+        {% for v, l in [('demand_desc', 'Rank by total demand (Pareto)'), ('legacy_sheet_order', 'Keep input order (parity replay only)')] %}<option value="{{ v }}" {% if p.abc.ordering == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+      <div class="col-md-6"><label class="form-label small">AMC method</label><select class="form-select form-select-sm" name="amc_method">
+        {% for v, l in [('recorded_months', 'Average of months with demand (legacy)'), ('period_months', 'Total ÷ months in period')] %}<option value="{{ v }}" {% if p.amc.method == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+      <div class="col-12 small fw-semibold mt-2">Reconciliation &amp; schedule</div>
+      <div class="col-md-3"><label class="form-label small">Abs. tolerance (qty)</label><input class="form-control form-control-sm" name="abs_tolerance" value="{{ p.reconciliation.abs_tolerance }}"></div>
+      <div class="col-md-3"><label class="form-label small">Uncounted location</label><select class="form-select form-select-sm" name="uncounted_bucket">
+        {% for v, l in [('not_counted', 'Not counted (no variance)'), ('zero', 'Treat as 0 (legacy)')] %}<option value="{{ v }}" {% if p.reconciliation.uncounted_bucket == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+      <div class="col-md-3"><label class="form-label small">Missing Odoo balance</label><select class="form-select form-select-sm" name="missing_odoo">
+        {% for v, l in [('missing', 'Missing (no variance)'), ('zero', 'Treat as 0 (legacy)')] %}<option value="{{ v }}" {% if p.reconciliation.missing_odoo == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+      <div class="col-md-3"><label class="form-label small">Never-counted items</label><select class="form-select form-select-sm" name="never_counted">
+        {% for v, l in [('due_now', 'Due now'), ('unscheduled', 'Unscheduled (legacy)')] %}<option value="{{ v }}" {% if p.schedule.never_counted == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+      <div class="col-md-3"><label class="form-label small">Upcoming window (days)</label><input class="form-control form-control-sm" name="upcoming_days" value="{{ p.schedule.upcoming_days }}"></div>
+      <div class="col-12"><label class="form-label small">Classification matrix (category → declared type, action, classification, interval days)</label>
+        <textarea class="form-control code-area" name="class_matrix" rows="11">{{ json.dumps(active_rs.class_matrix, indent=1) }}</textarea></div>
+      <div class="col-12"><label class="form-label small">Notes / approval reference</label><input class="form-control form-control-sm" name="notes" placeholder="e.g. approved by Inventory Manager, memo 2026-11"></div>
+      <div class="col-12"><button class="btn btn-primary btn-sm" data-confirm="Save a new rule-set version?">Save new version</button></div>
+    </form></div></div></div>
+</div>
+{% elif tab == 'locations' %}
+<div class="card-soft"><div class="card-head"><h2>Odoo internal locations → OICAS buckets</h2><span class="small-note">Unmapped locations are excluded from balances and flagged in Data Quality.</span></div>
+  <form method="post" action="/config/locations"><input type="hidden" name="csrf" value="{{ csrf }}">
+  <div class="table-responsive"><table class="table table-soft table-compact"><thead><tr><th>Odoo id</th><th>Location</th><th>Warehouse</th><th>Company</th><th>Active</th><th>Bucket</th></tr></thead>
+    <tbody>{% for l in locs %}<tr><td>{{ l.odoo_id }}</td><td>{{ l.complete_name }}</td><td>{{ l.warehouse_name or '' }}</td><td>{{ l.company_name or '' }}</td><td>{{ 'yes' if l.active else 'no' }}</td>
+      <td><select class="form-select form-select-sm" name="bucket_{{ l.id }}"><option value="" {% if not l.bucket %}selected{% endif %}>— unmapped —</option>
+        {% for b in buckets %}<option value="{{ b }}" {% if l.bucket == b %}selected{% endif %}>{{ b }}</option>{% endfor %}
+        <option value="IGNORE" {% if l.bucket == 'IGNORE' %}selected{% endif %}>IGNORE (not counted)</option></select></td></tr>
+    {% else %}<tr><td colspan="6" class="muted text-center py-4">No locations yet: run an Odoo sync first.</td></tr>{% endfor %}</tbody></table></div>
+  <div class="card-body-soft"><button class="btn btn-primary btn-sm">Save mapping</button></div></form></div>
+{% elif tab == 'settings' %}
+<div class="row g-3">{% for key, value in settings_view.items() %}
+  <div class="col-xl-4 col-md-6"><div class="card-soft h-100"><div class="card-head"><h3>{{ humanize(key) }}</h3></div><div class="card-body-soft">
+    <form method="post" action="/config/settings"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="key" value="{{ key }}">
+      {% if value is mapping %}<textarea class="form-control code-area mb-2" name="value" rows="5">{{ json.dumps(value, indent=1) }}</textarea>
+      {% elif value is iterable and value is not string %}<textarea class="form-control form-control-sm mb-2" name="value" rows="5">{{ value|join('\n') }}</textarea><div class="small-note mb-2">One per line.</div>
+      {% else %}<input class="form-control form-control-sm mb-2" name="value" value="{{ value if value is not none else '' }}">{% endif %}
+      <button class="btn btn-soft btn-sm">Save</button></form></div></div></div>
+{% endfor %}</div>
+{% elif tab == 'users' %}
+<div class="card-soft mb-3"><div class="card-head"><h2>Users</h2><span class="small-note">Users appear after their first Odoo login. Roles follow the Odoo group mapping unless locked.</span></div>
+  <div class="table-responsive"><table class="table table-soft table-compact"><thead><tr><th>Login</th><th>Name</th><th>Odoo uid</th><th>Last login</th><th>Role</th><th>Locked</th><th>Active</th><th></th></tr></thead>
+    <tbody>{% for u in users %}{% set fid = 'user-' ~ u.id %}<tr>
+      <td class="fw-semibold">{{ u.login }}</td><td>{{ u.name }}</td><td>{{ u.odoo_uid or 'local' }}</td><td class="small">{{ fmt(u.last_login_at, 'datetime') }}</td>
+      <td><select class="form-select form-select-sm" name="role" form="{{ fid }}">{% for r in roles %}<option {% if u.role == r %}selected{% endif %}>{{ r }}</option>{% endfor %}</select></td>
+      <td><input class="form-check-input" type="checkbox" name="role_locked" value="1" form="{{ fid }}" {% if u.role_locked %}checked{% endif %}></td>
+      <td><input class="form-check-input" type="checkbox" name="active" value="1" form="{{ fid }}" {% if u.active %}checked{% endif %}></td>
+      <td class="text-end"><form method="post" action="/config/users/{{ u.id }}" id="{{ fid }}"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn btn-soft btn-xs">Save</button></form></td></tr>{% endfor %}</tbody></table></div></div>
+<div class="card-soft"><div class="card-head"><h2>Active sessions</h2></div>
+  <div class="table-responsive"><table class="table table-soft table-compact"><thead><tr><th>User</th><th>Method</th><th>IP</th><th>Started</th><th>Last seen</th><th>Expires</th><th></th></tr></thead>
+    <tbody>{% for s in sessions %}<tr><td>{{ s.user.login }}</td><td>{{ s.auth_method }}</td><td>{{ s.ip or '' }}</td><td class="small">{{ fmt(s.created_at, 'datetime') }}</td><td class="small">{{ fmt(s.last_seen_at, 'datetime') }}</td><td class="small">{{ fmt(s.expires_at, 'datetime') }}</td>
+      <td class="text-end"><form method="post" action="/config/sessions/{{ s.user_id }}/revoke"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn btn-link btn-xs text-danger">Revoke all</button></form></td></tr>{% endfor %}</tbody></table></div></div>
+{% elif tab == 'imports' %}
+<div class="row g-3 mb-3">
+  <div class="col-xl-6"><div class="card-soft h-100"><div class="card-head"><h2>Legacy workbook migration</h2></div><div class="card-body-soft small">
+    <p>Imports the AMC/ABC workbook, the Masterlist and the COUNTED LIST from <span class="mono">docs/reference/</span>: items, families, demand, the legacy analysis results (approved as the baseline run), Odoo downloads, every count line and its reconciliation. Each file can be imported once.</p>
+    <form method="post" action="/config/import/legacy"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn btn-primary btn-sm" {% if not ref_available %}disabled{% endif %} data-confirm="Run the one-off legacy migration?">Migrate legacy workbooks</button></form>
+  </div></div></div>
+  <div class="col-xl-6"><div class="card-soft h-100"><div class="card-head"><h2>Item attributes upload</h2></div><div class="card-body-soft small">
+    <p>Excel with columns <span class="mono">RM CODE</span> and any of <span class="mono">MATERIAL SECTION, ABC FAMILY, PLANT LOCATION, REMARK, TRACKED</span>. Each change is validated and audited.</p>
+    <form method="post" action="/config/import/items" enctype="multipart/form-data" class="d-flex gap-2"><input type="hidden" name="csrf" value="{{ csrf }}"><input class="form-control form-control-sm" type="file" name="file" accept=".xlsx" required><button class="btn btn-soft btn-sm">Upload</button></form>
+  </div></div></div>
+</div>
+<div class="card-soft"><div class="card-head"><h2>Import history</h2></div>
+  <div class="table-responsive"><table class="table table-soft table-compact"><thead><tr><th>#</th><th>Type</th><th>File</th><th>Status</th><th>When</th><th>Result</th></tr></thead>
+    <tbody>{% for r in imports %}<tr><td>{{ r.id }}</td><td>{{ r.scope.get('type') }}</td><td class="small">{{ r.scope.get('file') }}</td><td>{{ pill(r.status) }}</td><td class="small">{{ fmt(r.started_at, 'datetime') }}</td>
+      <td class="small">{% for k, v in r.stats.items() if v is not mapping %}{{ humanize(k) }} {{ v }}{% if not loop.last %} · {% endif %}{% endfor %}</td></tr>
+    {% else %}<tr><td colspan="6" class="muted text-center py-3">No imports yet.</td></tr>{% endfor %}</tbody></table></div></div>
+{% endif %}
+{% endblock %}

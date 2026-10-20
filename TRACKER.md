@@ -1,9 +1,9 @@
 # OICAS — Project Tracker
 
 Live checklist and change log for the build described in [docs/Task.md](docs/Task.md).
-Status legend: ✅ done & tested · 🟡 in progress · 🧪 built, not yet tested · ⛔ blocked (needs input/environment) · ⬜ not started
+Status legend: ✅ done & tested · 🟡 in progress · 🧪 built, not yet tested · ⛔ blocked (needs input or environment) · ⬜ not started
 
-**How to use:** update the status column when work moves. Add a row to the **Change Log** for every merged change (date, area, summary, commit). Decisions that need business sign-off live in [docs/analysis/10-unresolved-decisions.md](docs/analysis/10-unresolved-decisions.md).
+**How to use:** update the status column when work moves. Add a row to the **Change Log** for every change you push (date, area, summary). Decisions that need business sign-off live in [docs/analysis/10-unresolved-decisions.md](docs/analysis/10-unresolved-decisions.md).
 
 ---
 
@@ -11,38 +11,38 @@ Status legend: ✅ done & tested · 🟡 in progress · 🧪 built, not yet test
 
 | Phase | Item | Status | Notes |
 |---|---|---|---|
-| 1 Excel reverse-engineering | Workbook inventory | ✅ | [01](docs/analysis/01-workbook-inventory.md) |
-| | Data dictionary | ✅ | [02](docs/analysis/02-data-dictionary.md) |
-| | Formula & calculation register | ✅ | [03](docs/analysis/03-formula-register.md) |
-| | Cross-workbook dependency map | ✅ | [04](docs/analysis/04-dependency-map.md) |
-| | Current-state process map + target workflow | ✅ | [05](docs/analysis/05-process-map.md) |
-| | Source-to-target mapping | ✅ | [06](docs/analysis/06-source-to-target-mapping.md) |
-| | Report catalog | ✅ | [07](docs/analysis/07-report-catalog.md) |
-| | Business rules register | ✅ | [08](docs/analysis/08-business-rules.md) |
-| | Data quality register | ✅ | [09](docs/analysis/09-data-quality-register.md) |
-| | Unresolved decisions | ✅ | [10](docs/analysis/10-unresolved-decisions.md): 13 open, defaults implemented |
-| 2 Architecture & DB | Architecture doc | ⬜ | |
-| | Data model + migrations | ⬜ | |
-| | Central calculation engine | ⬜ | |
-| 3 Odoo auth & read-only integration | Read-only XML-RPC client (method whitelist) | ⬜ | |
-| | Login with Odoo (server-side) | ⬜ | |
-| | Sync: products, UoM, locations, quants → snapshot | ⬜ | |
-| | Verification against the **real** Odoo instance | ⛔ | Needs Odoo URL/DB/service credentials (UD-09) |
-| 4 Masterlist & data quality | Masterlist screen, filters, item detail | ⬜ | |
-| | DQ exception detection & screen | ⬜ | |
-| | Legacy workbook importer | ⬜ | |
-| 5 Counting & scheduling | Count plans, sessions, entries, corrections, recounts | ⬜ | |
-| | Scheduling engine (due/overdue/upcoming) | ⬜ | |
-| 6 Reconciliation | Discrepancy engine, review workflow | ⬜ | |
-| 7 AMC / ABC / movement | Analysis runs, approval, comparison | ⬜ | |
-| 8 Dashboard & reports | Dashboard, 16 reports, Excel/PDF export | ⬜ | |
-| 9 Security & hardening | RBAC, CSRF, sessions, audit, backups | ⬜ | |
-| 10 Validation & deployment | Excel-parity tests, e2e tests, Docker deploy, docs | ⬜ | |
+| 1 Excel reverse-engineering | Workbook inventory, data dictionary, formula register, dependency map, process map, mapping, report catalog, business rules, DQ register, unresolved decisions | ✅ | [docs/analysis/](docs/analysis/) |
+| 2 Architecture & DB | Architecture | ✅ | [docs/architecture.md](docs/architecture.md) |
+| | Data model + Alembic migration | ✅ | `backend/oicas/models.py`, `alembic/versions/0001` (tested on SQLite and PostgreSQL 16) |
+| | Central calculation engine | ✅ | `backend/oicas/engine/`; 14 formula-parity tests |
+| 3 Odoo auth & read-only integration | Read-only XML-RPC gateway (method whitelist, retries, pagination) | ✅ | tested with the fixture; write methods refused |
+| | Login with Odoo (server-side, group → role, throttling) | ✅ | |
+| | Sync: locations, products, quants → snapshots; MO demand | ✅ | fixture-tested, incl. failure rollback and staleness |
+| | Verification against the **real** Odoo instance | ⛔ | Needs ODOO_URL / DB / service API key (UD-09). Run `oicas.cli odoo-probe`, then a sync |
+| 4 Masterlist & data quality | Masterlist, filters, sort, item detail, editable OICAS-owned fields | ✅ | |
+| | DQ detection (sync, import, item scan) and review screen | ✅ | 19 exception kinds |
+| | Legacy workbook migration | ✅ | migration parity: 6,086 items, 34 explained differences |
+| 5 Counting & scheduling | Plans, assignment, count sheets (Excel/PDF), sessions, entries, upload, submit, corrections, recounts, idempotency | ✅ | |
+| | Scheduling (due / overdue / upcoming / never counted, priority) | ✅ | |
+| 6 Reconciliation | Engine, snapshot linking, stale-snapshot guard, review workflow | ✅ | |
+| 7 AMC / ABC / movement | Analysis runs (draft → approve), demand sync/upload, run comparison | ✅ | |
+| 8 Dashboard & reports | Dashboard with drill-downs, 16 reports, Excel/PDF export with SAWO logo | ✅ | export = screen test |
+| 9 Security & hardening | RBAC, CSRF, CSP, sessions, audit log, production safety check, backups doc | ✅ | external penetration test not done |
+| 10 Validation & deployment | Parity tests, service and web tests (65 passing) | ✅ | [docs/parity-results.md](docs/parity-results.md) |
+| | Docker Compose deployment (db/web/worker), docs | ✅ | [docs/admin-guide.md](docs/admin-guide.md) |
+| | User acceptance testing with inventory staff | ⬜ | needs business users |
+| | Business sign-off of ⚠ decisions UD-01, UD-14 | ⛔ | Inventory / planning managers |
+| Later | AI-assisted explanations (Task.md §21) | ⬜ | Not started. It must only use deterministic, stored results |
 
 ---
 
 ## Change Log
 
-| Date | Area | Change | By |
-|---|---|---|---|
-| 2026-10-20 | Repo | Moved Task.md and reference workbooks into `docs/`; created tracker, README, Phase-1 analysis artifacts | Claude Code |
+| Date | Area | Change |
+|---|---|---|
+| 2026-10-20 | Repo | Moved Task.md and reference workbooks into `docs/`; created tracker, README, Phase-1 analysis |
+| 2026-10-20 | Engine | AMC, ABC, classification, reconciliation, metrics, scheduling + Excel-parity tests |
+| 2026-10-20 | Backend | Models, migration, read-only Odoo gateway, sync, counting, analysis, importers, 16 reports, Excel/PDF exports |
+| 2026-10-20 | Migration | Legacy workbook import with end-to-end parity; found DQ-23 (blank count lines) and DQ-24 (stale Masterlist copies); added UD-14..UD-16 |
+| 2026-10-20 | UI | Web app in the General Automation System design (Bootstrap 5, SAWO logo), dashboard, all modules |
+| 2026-10-20 | Deploy | Docker Compose (PostgreSQL, web, worker), `.env.example`, user/admin/Odoo guides |

@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Session #{{ s.id }}{% endblock %}
+{% block page_kicker %}Physical Counting{% endblock %}
+{% block page_title %}Session #{{ s.id }} {{ pill(s.status) }}{% endblock %}
+{% block header_actions %}<a class="btn btn-soft btn-sm" href="/counting"><i class="bi bi-arrow-left"></i> Sessions</a>{% endblock %}
+{% block content %}
+<div class="card-soft mb-3"><div class="card-body-soft"><dl class="dl-grid">
+  <dt>Count date</dt><dd>{{ fmt(s.count_date, 'date') }}</dd>
+  <dt>Counted by</dt><dd>{{ s.counted_by_name }}</dd>
+  <dt>Source</dt><dd>{{ humanize(s.source) }}{% if s.plan_id %} · plan <a href="/planning/plans/{{ s.plan_id }}">#{{ s.plan_id }}</a>{% endif %}{% if s.recount_of_reconciliation_id %} · recount of <a href="/reconciliation/{{ s.recount_of_reconciliation_id }}">reconciliation #{{ s.recount_of_reconciliation_id }}</a>{% endif %}</dd>
+  <dt>Submitted / finalized</dt><dd>{{ fmt(s.submitted_at, 'datetime') }} / {{ fmt(s.finalized_at, 'datetime') }}{% if s.snapshot_id %} · Odoo snapshot #{{ s.snapshot_id }}{% endif %}</dd>
+  <dt>Remarks</dt><dd>{{ s.remarks or '–' }}</dd>
+</dl></div></div>
+
+{% if s.status == 'draft' and can('count.enter') %}
+<div class="card-soft mb-3" id="entry-form"><div class="card-head"><h2>Add count entry</h2><span class="small-note">Each entry is one counted figure. Several entries for the same item, location and date are added together.</span></div>
+  <div class="card-body-soft">
+    <form method="post" action="/counting/sessions/{{ s.id }}/entries" class="row g-2 align-items-end">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <div class="col-md-3 typeahead"><label class="form-label small">RM code</label><input class="form-control form-control-sm" name="item_code" data-typeahead autocomplete="off" required autofocus></div>
+      <div class="col-md-2"><label class="form-label small">Location</label><select class="form-select form-select-sm" name="bucket">{% for b in buckets %}<option value="{{ b }}">{{ b|title }}</option>{% endfor %}</select></div>
+      <div class="col-md-1"><label class="form-label small">Slot</label><select class="form-select form-select-sm" name="slot">{% for sl in slots %}<option>{{ sl }}</option>{% endfor %}</select></div>
+      <div class="col-md-1"><label class="form-label small">Round</label><input class="form-control form-control-sm" type="number" name="round_no" value="1" min="1" max="9"></div>
+      <div class="col-md-2"><label class="form-label small">Quantity</label><input class="form-control form-control-sm" name="qty" inputmode="decimal" required></div>
+      <div class="col-md-2"><label class="form-label small">Remarks</label><input class="form-control form-control-sm" name="remarks"></div>
+      <div class="col-md-1"><button class="btn btn-primary btn-sm w-100">Add</button></div>
+    </form>
+    {% if plan_items %}<div class="small-note mt-2">Plan items not yet entered: {% for pi in plan_items[:40] %}<span class="mono">{{ pi.item_code }}</span>{% if not loop.last %}, {% endif %}{% endfor %}{% if plan_items|length > 40 %} … ({{ plan_items|length }} total){% endif %}</div>{% endif %}
+  </div></div>
+{% endif %}
+
+<div class="card-soft mb-3">
+  <div class="card-head"><h2>Entries ({{ s.entries|length }})</h2>
+    <div class="d-flex gap-2">
+      {% if s.status == 'draft' and can('count.enter') %}
+        <form method="post" action="/counting/sessions/{{ s.id }}/submit"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn btn-primary btn-sm" data-confirm="Submit this session? Entries can then only be changed through a correction with a reason.">Submit</button></form>
+      {% endif %}
+      {% if s.status == 'submitted' and can('count.finalize') %}
+        <form method="post" action="/counting/sessions/{{ s.id }}/finalize" class="d-flex gap-2 align-items-center">
+          <input type="hidden" name="csrf" value="{{ csrf }}">
+          {% if st.stale %}<label class="small text-danger"><input type="checkbox" class="form-check-input" name="allow_stale" value="1"> finalize against stale Odoo data ({{ '%.0f'|format(st.age_hours or 0) }} h old)</label>{% endif %}
+          <button class="btn btn-primary btn-sm">Finalize &amp; reconcile</button></form>
+      {% endif %}
+      {% if s.status in ('draft', 'submitted') and can('count.enter') %}
+        <form method="post" action="/counting/sessions/{{ s.id }}/cancel" class="d-flex gap-2"><input type="hidden" name="csrf" value="{{ csrf }}"><input class="form-control form-control-sm" name="reason" placeholder="Reason to cancel" required><button class="btn btn-soft btn-sm">Cancel</button></form>
+      {% endif %}
+    </div>
+  </div>
+  <div class="table-responsive"><table class="table table-soft table-compact">
+    <thead><tr><th>RM Code</th><th>Description</th><th>Location</th><th>Slot</th><th>Round</th><th class="text-end">Qty</th><th>UoM</th><th>Remarks / correction</th><th class="text-end"></th></tr></thead>
+    <tbody>{% for e in s.entries|sort(attribute='id') %}
+      <tr class="{% if e.superseded_by_id or e.superseded_at %}entry-superseded{% endif %}">
+        <td><a class="row-link" href="/items/{{ e.item_code }}">{{ e.item_code }}</a></td><td>{{ desc.get(e.item_code, '') }}</td><td>{{ e.bucket|title }}</td><td>{{ e.slot }}</td><td>{{ e.round }}</td>
+        <td class="text-end num">{{ fmt(e.qty, 'qty') }}</td><td>{{ e.uom_name or '' }}</td><td class="small">{{ e.correction_reason or e.remarks or '' }}</td>
+        <td class="text-end">
+          {% if s.status == 'draft' and can('count.enter') %}
+            <form method="post" action="/counting/entries/{{ e.id }}/remove"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn btn-link btn-xs text-danger">Remove</button></form>
+          {% elif s.status in ('submitted', 'finalized') and can('count.finalize') and not e.superseded_by_id and not e.superseded_at %}
+            <form method="post" action="/counting/entries/{{ e.id }}/correct" class="d-flex gap-1 justify-content-end">
+              <input type="hidden" name="csrf" value="{{ csrf }}"><input class="form-control form-control-sm" style="width:90px" name="qty" placeholder="new qty" required>
+              <input class="form-control form-control-sm" style="width:160px" name="reason" placeholder="reason" required><button class="btn btn-soft btn-xs">Correct</button></form>
+          {% endif %}
+        </td></tr>
+    {% else %}<tr><td colspan="9" class="muted text-center py-4">No entries yet.</td></tr>{% endfor %}</tbody>
+  </table></div>
+</div>
+
+{% if recons %}
+<div class="card-soft"><div class="card-head"><h2>Reconciliation results</h2></div>
+  <div class="table-responsive"><table class="table table-soft table-compact">
+    <thead><tr><th>RM Code</th><th class="text-end">Physical WH</th><th class="text-end">Odoo WH</th><th class="text-end">Var. WH</th><th class="text-end">Physical PROD</th><th class="text-end">Odoo Pre-Prod</th><th class="text-end">Var. PROD</th><th>Status</th><th></th></tr></thead>
+    <tbody>{% for r in recons %}<tr><td>{{ r.item_code }}</td>
+      <td class="text-end num">{{ fmt(r.phys_wh, 'qty') }}</td><td class="text-end num">{{ fmt(r.odoo_wh, 'qty') }}</td><td class="text-end num {% if (r.disc_wh or 0) < 0 %}neg{% endif %}">{{ fmt(r.disc_wh, 'qty') }}</td>
+      <td class="text-end num">{{ fmt(r.phys_prod, 'qty') }}</td><td class="text-end num">{{ fmt(r.odoo_prod, 'qty') }}</td><td class="text-end num {% if (r.disc_prod or 0) < 0 %}neg{% endif %}">{{ fmt(r.disc_prod, 'qty') }}</td>
+      <td>{{ pill(r.status) }}</td><td class="text-end"><a class="btn btn-outline-primary btn-xs" href="/reconciliation/{{ r.id }}">Review</a></td></tr>{% endfor %}</tbody>
+  </table></div></div>
+{% endif %}
+{% endblock %}

@@ -18,6 +18,9 @@ def make_engine(url: str) -> Engine:
     kwargs: dict = {"future": True, "pool_pre_ping": True}
     if url.startswith("sqlite"):
         kwargs["connect_args"] = {"check_same_thread": False}
+        if url in ("sqlite://", "sqlite:///:memory:"):
+            from sqlalchemy.pool import StaticPool
+            kwargs["poolclass"] = StaticPool  # one shared in-memory database across threads (tests)
     eng = create_engine(url, **kwargs)
     if url.startswith("sqlite"):
         @event.listens_for(eng, "connect")
