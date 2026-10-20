@@ -16,6 +16,10 @@ BUCKETS = (WAREHOUSE, PRODUCTION)
 UNCOUNTED_AS_MISSING = "not_counted"  # default (Task.md §11): no physical qty, no discrepancy
 UNCOUNTED_AS_ZERO = "zero"  # legacy replay: SUMIFS returns 0 → discrepancy = -Odoo
 
+# How a missing Odoo balance is treated.
+ODOO_MISSING_AS_MISSING = "missing"  # default (BR-23): status odoo_missing, no variance
+ODOO_MISSING_AS_ZERO = "zero"  # legacy replay: XLOOKUP(...,0) → variance against 0 (DQ-08)
+
 FLOAT_NOISE = 1e-6
 
 STATUS_ACCURATE = "accurate"
@@ -83,6 +87,7 @@ def reconcile(
     odoo: dict[str, float | None],
     abs_tolerance: float = 0.0,
     uncounted_bucket: str = UNCOUNTED_AS_MISSING,
+    missing_odoo: str = ODOO_MISSING_AS_MISSING,
 ) -> ReconResult:
     """Reconcile one item on one count date against its Odoo snapshot balances.
 
@@ -97,6 +102,10 @@ def reconcile(
     elif uncounted_bucket != UNCOUNTED_AS_MISSING:
         raise ValueError(f"unknown uncounted_bucket policy {uncounted_bucket!r}")
     o_wh, o_prod = odoo.get(WAREHOUSE), odoo.get(PRODUCTION)
+    if missing_odoo == ODOO_MISSING_AS_ZERO:
+        o_wh, o_prod = o_wh or 0.0, o_prod or 0.0
+    elif missing_odoo != ODOO_MISSING_AS_MISSING:
+        raise ValueError(f"unknown missing_odoo policy {missing_odoo!r}")
     d_wh, d_prod = discrepancy(p_wh, o_wh), discrepancy(p_prod, o_prod)
     flag = is_variance(d_wh, abs_tolerance) or is_variance(d_prod, abs_tolerance)
     missing = (p_wh is not None and o_wh is None) or (p_prod is not None and o_prod is None)
