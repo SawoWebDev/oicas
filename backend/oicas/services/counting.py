@@ -263,13 +263,22 @@ def recompute(db: Session, item_code: str, count_date: date, ctx: RecomputeConte
     latest = max(sessions, key=lambda x: (x.finalized_at.timestamp() if x.finalized_at else 0.0, x.id))
     snap = db.get(InventorySnapshot, latest.snapshot_id) if latest.snapshot_id else None
     odoo = sync.balances(db, snap, [item_code])[item_code]
+    balance_source = None if snap is None else ("odoo" if snap.source == "odoo" else "legacy")
+    if any(odoo[b] is None for b in odoo):
+        # Item not (yet) in Odoo: fall back to an imported book balance dated on/before the count.
+        book = sync.book_balances(db, item_code, count_date)
+        if any(v is not None for b, v in book.items() if odoo[b] is None):
+            odoo = {b: (odoo[b] if odoo[b] is not None else book[b]) for b in odoo}
+            balance_source = "book"
     res = recon_engine.reconcile(phys, odoo, float(p["abs_tolerance"]), p["uncounted_bucket"], p["missing_odoo"])
     cls_name = ctx.classes.get(item_code)
     vals = dict(phys_wh=res.phys_wh, phys_prod=res.phys_prod, odoo_wh=res.odoo_wh, odoo_prod=res.odoo_prod,
                 disc_wh=res.disc_wh, disc_prod=res.disc_prod, has_discrepancy=res.has_discrepancy, status=res.status)
-    if old is not None and all(getattr(old, k) == v for k, v in vals.items()) and old.snapshot_id == (snap.id if snap else None):
+    if (old is not None and all(getattr(old, k) == v for k, v in vals.items())
+            and old.snapshot_id == (snap.id if snap else None) and old.balance_source == balance_source):
         return old
     new = Reconciliation(item_code=item_code, count_date=count_date, snapshot_id=snap.id if snap else None,
+                         balance_source=balance_source,
                          rule_set_id=rs.id, classification_at_count=(old.classification_at_count if old else None)
                          or cls_name,
                          counted_by=", ".join(sorted({x.counted_by_name for x in sessions})),

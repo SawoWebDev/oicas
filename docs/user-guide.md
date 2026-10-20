@@ -26,6 +26,18 @@ A yellow **Development fixture** banner means you're on a test system with simul
 5. **Review discrepancies**: *Odoo Reconciliation* → open an item → add a note, mark *investigating*, **request a recount** (adds it to the *Recount requests* plan) or **resolve** with an explanation. OICAS never changes Odoo; stock adjustments are still done in Odoo by the authorised person.
 6. **Next cycle**: the next count date updates automatically (last count + interval).
 
+## Importing data that isn't in Odoo (Data Import)
+Some items aren't encoded in Odoo yet, or have no code. Managers bring them in under **Inventory → Data Import**. Each import has a **Template** button (an Excel file with a DATA sheet, a grey example row and a HOW TO sheet), a **Dry run** that checks everything without saving, and **Import**. If any row has an error, nothing is saved and every error is listed with its row number.
+
+| Import | Use it for | Notes |
+|---|---|---|
+| 1. Items not in Odoo | New items, or items without a code | Blank code → temporary code `NC-00001`, `NC-00002`, … Also updates section / family / plant / remark / tracked for existing items (Odoo-owned description and UoM aren't changed). |
+| 2. Book balances | The expected stock of items Odoo doesn't hold | When such an item is counted, it's compared with the latest book balance dated on or before the count date. The reconciliation shows "System balance from: imported book balance". Blank ≠ 0. |
+| 3. Count lines | Many counts at once, in the COUNTED LIST layout | One session per date and counter, created as *submitted*; a manager finalizes. Optional BOOK WH / BOOK PROD columns store book balances at the same time. |
+| 4. Demand | Consumption not recorded in Odoo | Same columns as the Odoo export. Then calculate a new analysis run (AMC Analysis). |
+
+When an item is later encoded in Odoo, open it and use **Change item code**: all counts, reconciliations and demand move to the Odoo code, and the next sync links it. Until then it's listed under *Data Quality → not in odoo*.
+
 ## Masterlist
 The legacy *Master* sheet, with the same columns: RM code, description, action, classification, AMC, material section, plant location, interval, UoM, counted date, next count, actual WH/PROD, stock in months, Odoo WH/Pre-prod, discrepancies and remark. Use the filters, click a column to sort, and click a code for the full item history (counts, corrections, reconciliations, demand by month and data-quality notes).
 

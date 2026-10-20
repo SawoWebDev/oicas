@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block header_actions %}<a class="btn btn-soft btn-sm" href="/imports"><i class="bi bi-arrow-left"></i> Data Import</a>{% endblock %}
+{% block content %}
+<div class="card-soft mb-3">
+  <div class="card-head"><h2>{{ tpl.title }} · {{ filename }}</h2>
+    {% if not res.ok %}<span class="pill tone-red">rejected — nothing saved</span>
+    {% elif res.dry_run %}<span class="pill tone-blue">dry run — nothing saved</span>
+    {% else %}<span class="pill tone-green">imported{% if res.details.import_id %} #{{ res.details.import_id }}{% endif %}</span>{% endif %}
+  </div>
+  <div class="summary-chips">
+    <span class="chip">Rows read<b>{{ res.rows }}</b></span>
+    <span class="chip">{{ 'Would create' if res.dry_run else 'Created' }}<b>{{ res.created }}</b></span>
+    <span class="chip">{{ 'Would update' if res.dry_run else 'Updated' }}<b>{{ res.updated }}</b></span>
+    {% if res.skipped %}<span class="chip">Skipped<b>{{ res.skipped }}</b></span>{% endif %}
+    {% for k, v in res.details.items() if k != 'import_id' %}<span class="chip">{{ humanize(k) }}<b>{{ v }}</b></span>{% endfor %}
+  </div>
+  <div class="card-body-soft">
+    {% if res.errors %}
+      <div class="fw-semibold text-danger mb-1">{{ res.errors|length }} error(s) — fix them in the file and upload again:</div>
+      <ul class="small">{% for e in res.errors[:300] %}<li>{{ e }}</li>{% endfor %}</ul>
+      {% if res.errors|length > 300 %}<div class="small-note">… and {{ res.errors|length - 300 }} more.</div>{% endif %}
+    {% endif %}
+    {% if res.warnings %}
+      <div class="fw-semibold mb-1">Notes:</div>
+      <ul class="small">{% for w in res.warnings[:300] %}<li>{{ w }}</li>{% endfor %}</ul>
+    {% endif %}
+    {% if res.ok and res.dry_run %}<div class="small">The file is valid. Upload it again with <b>Import</b> to save it.</div>{% endif %}
+    {% if res.ok and not res.dry_run and res.kind == 'count_lines' %}<div class="small">Sessions {{ res.details.session_ids }} are <b>submitted</b>: a manager finalizes them on <a href="/counting?status=submitted">Physical Counting</a>.</div>{% endif %}
+  </div>
+</div>
+{% endblock %}

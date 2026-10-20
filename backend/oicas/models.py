@@ -315,6 +315,8 @@ class Reconciliation(Base):
     count_date: Mapped[date] = mapped_column(Date, index=True)
     snapshot_id: Mapped[int | None] = mapped_column(ForeignKey("inventory_snapshot.id"))
     rule_set_id: Mapped[int | None] = mapped_column(ForeignKey("rule_set.id"))
+    # where the system balance came from: odoo / legacy / book (imported book balance, item not in Odoo)
+    balance_source: Mapped[str | None] = mapped_column(String(10))
     phys_wh: Mapped[float | None] = mapped_column(Float)
     phys_prod: Mapped[float | None] = mapped_column(Float)
     odoo_wh: Mapped[float | None] = mapped_column(Float)

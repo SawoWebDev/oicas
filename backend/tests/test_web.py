@@ -151,6 +151,27 @@ def test_count_sheet_roundtrip(client):
     assert r.status_code == 303 and "/counting/sessions/" in r.headers["location"], re.findall(r"<li>(.*?)</li>", r.text)
 
 
+def test_import_center_template_and_dry_run(client):
+    import io
+
+    from openpyxl import load_workbook
+    login(client, "manager")
+    assert client.get("/imports").status_code == 200
+    t = client.get("/imports/template/items.xlsx")
+    assert t.status_code == 200 and t.content[:2] == b"PK"
+    wb = load_workbook(io.BytesIO(t.content))
+    wb["DATA"].append(["", "Web gasket", "Piece", "", "", "1", "", "yes"])
+    buf = io.BytesIO()
+    wb.save(buf)
+    token = csrf(client, "/imports")
+    r = client.post("/imports/items", data={"csrf": token, "dry_run": "1"}, files={"file": ("i.xlsx", buf.getvalue())})
+    assert r.status_code == 200 and "dry run" in r.text and "Would create" in r.text
+    r = client.post("/imports/items", data={"csrf": token}, files={"file": ("i.xlsx", buf.getvalue())})
+    assert "imported" in r.text
+    login(client, "counter")
+    assert client.get("/imports").status_code == 403
+
+
 def test_logout_revokes_session(client):
     login(client, "admin")
     token = csrf(client)

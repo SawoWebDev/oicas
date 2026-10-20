@@ -41,7 +41,7 @@ docker build --build-arg INSTALL_DEV=true -t oicas-dev backend
 docker run --rm -v "$PWD:/repo" -w /repo/backend oicas-dev python -m pytest -q
 ```
 
-65 tests: formula parity against the workbooks, end-to-end migration parity, services and web (roles, CSRF, workflows, exports). Results: [docs/parity-results.md](docs/parity-results.md).
+90 tests: formula parity against the workbooks, end-to-end migration parity, services, imports and web (roles, CSRF, workflows, exports). Results: [docs/parity-results.md](docs/parity-results.md).
 
 ## Repository guide
 

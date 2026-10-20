@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block content %}
+<p class="muted small mb-3">Bring in data that isn't in Odoo (yet): items without an Odoo code, their expected stock, counts and demand.
+  Download the template, fill the <b>DATA</b> sheet, then run a <b>dry run</b> to check it. Imports are all-or-nothing:
+  if any row has an error, nothing is saved. Odoo itself is never changed.</p>
+
+{% set cards = [
+  ('items', 'bi-box-seam', 'tone-blue', '1. Items not in Odoo', 'Create items that are not encoded in Odoo (blank code → temporary NC-xxxxx code) or update section, family, plant, remark and tracking for any item.'),
+  ('book_balances', 'bi-journal-check', 'tone-purple', '2. Book balances', 'Expected stock for items Odoo does not hold. Counts of those items are reconciled against the latest book balance on or before the count date.'),
+  ('count_lines', 'bi-clipboard-data', 'tone-green', '3. Count lines', 'Many counts at once in the COUNTED LIST layout (date, code, counter, WH-1…4, PROD-1…4). Creates submitted sessions for a manager to finalize.'),
+  ('demand', 'bi-graph-up', 'tone-orange', '4. Demand / consumption', 'Consumption not recorded in Odoo, in the same layout as the Odoo export. Used by the next AMC/ABC analysis run.'),
+] %}
+<div class="row g-3 mb-3">
+  {% for kind, icon, tone, title_, text in cards %}
+  <div class="col-xl-6">
+    <div class="card-soft h-100">
+      <div class="card-head"><h2><span class="kpi-icon {{ tone }} me-2"><i class="bi {{ icon }}"></i></span>{{ title_ }}</h2>
+        <a class="btn btn-soft btn-sm" href="/imports/template/{{ kind }}.xlsx"><i class="bi bi-file-earmark-arrow-down"></i> Template</a></div>
+      <div class="card-body-soft">
+        <p class="small mb-2">{{ text }}</p>
+        <p class="small-note mb-3">Columns: {{ templates[kind].columns|join(', ') }}</p>
+        <form method="post" action="/imports/{{ kind }}" enctype="multipart/form-data" class="row g-2 align-items-center">
+          <input type="hidden" name="csrf" value="{{ csrf }}">
+          <div class="col-md-6"><input class="form-control form-control-sm" type="file" name="file" accept=".xlsx" required></div>
+          {% if kind == 'demand' %}
+            <div class="col-md-3"><input class="form-control form-control-sm" type="month" name="first_month" title="Only for the legacy pivot layout: month of the first quantity column"></div>
+            <div class="col-md-3"><button class="btn btn-primary btn-sm w-100"><i class="bi bi-upload"></i> Import</button></div>
+          {% else %}
+            <div class="col-md-3"><button class="btn btn-soft btn-sm w-100" name="dry_run" value="1"><i class="bi bi-search"></i> Dry run</button></div>
+            <div class="col-md-3"><button class="btn btn-primary btn-sm w-100"><i class="bi bi-upload"></i> Import</button></div>
+          {% endif %}
+        </form>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-xl-6"><div class="card-soft h-100"><div class="card-head"><h2><i class="bi bi-clipboard-check me-1"></i> Single count sheet</h2></div>
+    <div class="card-body-soft small">For one counter's sheet from a count plan, use <a href="/planning">Cycle Count Planning</a> → plan → <b>Count sheet (Excel)</b>,
+      then upload it on <a href="/counting">Physical Counting</a>.</div></div></div>
+  <div class="col-xl-6"><div class="card-soft h-100"><div class="card-head"><h2><i class="bi bi-arrow-left-right me-1"></i> Item later encoded in Odoo?</h2></div>
+    <div class="card-body-soft small">Open the item and use <b>Change item code</b>. Its whole history moves to the Odoo code, and the next sync links it to Odoo.
+      Until then it's listed under Data Quality → <i>not in odoo</i>.</div></div></div>
+</div>
+
+<div class="card-soft"><div class="card-head"><h2>Import history</h2></div>
+  <div class="table-responsive"><table class="table table-soft table-compact">
+    <thead><tr><th>#</th><th>Type</th><th>File</th><th>Status</th><th>When</th><th>Result</th></tr></thead>
+    <tbody>{% for r in history %}<tr><td>{{ r.id }}</td><td>{{ humanize(r.scope.get('type')) }}</td><td class="small">{{ r.scope.get('file') }}</td>
+      <td>{{ pill(r.status) }}</td><td class="small">{{ fmt(r.started_at, 'datetime') }}</td>
+      <td class="small">{% for k, v in r.stats.items() if v is not mapping %}{{ humanize(k) }} {{ v }}{% if not loop.last %} · {% endif %}{% endfor %}</td></tr>
+    {% else %}<tr><td colspan="6" class="muted text-center py-3">No imports yet.</td></tr>{% endfor %}</tbody>
+  </table></div></div>
+{% endblock %}

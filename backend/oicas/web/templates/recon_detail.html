@@ -15,6 +15,7 @@
       </tbody></table></div>
     <div class="card-body-soft small-note">
       “–” physical = location not counted (not a zero). “–” Odoo = no balance in the snapshot. UoM: {{ item.uom_name if item else '–' }}.
+      System balance from: <b>{{ {'odoo': 'Odoo snapshot', 'legacy': 'legacy Excel (COUNTED LIST)', 'book': 'imported book balance (item not in Odoo)'}.get(r.balance_source, 'none') }}</b>.
       Snapshot {% if snap %}#{{ snap.id }} · {{ snap.label }} · {{ fmt(snap.taken_at, 'datetime') }}{% else %}none{% endif %} · rule set id {{ r.rule_set_id }} · computed {{ fmt(r.computed_at, 'datetime') }} · class at count: {{ r.classification_at_count or '–' }}.
     </div></div></div>
   <div class="col-xl-5"><div class="card-soft h-100"><div class="card-head"><h2>Review</h2></div>

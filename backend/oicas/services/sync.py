@@ -56,6 +56,8 @@ def run_inventory_sync(db: Session, gw: OdooGateway, user: User | None = None) -
             locs = _sync_locations(db, gw, stats)
             products = _sync_products(db, gw, stats)
             snap = _snapshot_quants(db, gw, run, locs, products, stats)
+            from .imports import flag_not_in_odoo
+            stats["tracked_items_not_in_odoo"] = flag_not_in_odoo(db)
             stats["snapshot_id"] = snap.id
             dq.auto_resolve(db, "sync_failed", set(), "sync")
             dq.auto_resolve(db, "stale_snapshot", set(), "sync")
@@ -288,6 +290,23 @@ def balances(db: Session, snap: InventorySnapshot | None, codes: list[str]) -> d
         for ln in db.scalars(select(SnapshotLine).where(SnapshotLine.snapshot_id == snap.id,
                                                         SnapshotLine.item_code.in_(part))):
             out[ln.item_code][ln.bucket] = ln.qty
+    return out
+
+
+BOOK_SOURCE = "manual_import"
+
+
+def book_balances(db: Session, code: str, on: date) -> dict[str, float | None]:
+    """Latest imported book balance per bucket dated on or before ``on`` (for items Odoo doesn't hold)."""
+    tz = ZoneInfo(get_settings().app_timezone)
+    cutoff = datetime.combine(on + timedelta(days=1), datetime.min.time(), tz).astimezone(timezone.utc)
+    out: dict[str, float | None] = {b: None for b in BUCKETS}
+    rows = db.execute(select(SnapshotLine.bucket, SnapshotLine.qty).join(InventorySnapshot).where(
+        InventorySnapshot.source == BOOK_SOURCE, InventorySnapshot.taken_at < cutoff, SnapshotLine.item_code == code)
+        .order_by(InventorySnapshot.taken_at.desc(), InventorySnapshot.id.desc())).all()
+    for bucket, qty in rows:
+        if out.get(bucket) is None:
+            out[bucket] = qty
     return out
 
 

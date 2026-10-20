@@ -164,8 +164,9 @@ def dashboard(request: Request, db: Session = Depends(get_db), user: User = Depe
                   run_period=ds.run_period, run_id=ds.run_id, classes=MOVEMENT_CLASSES)
 
 
-from . import routes_admin, routes_analysis, routes_inventory  # noqa: E402
+from . import routes_admin, routes_analysis, routes_imports, routes_inventory  # noqa: E402
 
+app.include_router(routes_imports.router)  # before inventory: /items/{code}/rekey must win over /items/{code:path}
 app.include_router(routes_inventory.router)
 app.include_router(routes_analysis.router)
 app.include_router(routes_admin.router)

@@ -30,6 +30,7 @@ NAV = [
         ("counting", "/counting", "bi-clipboard-check", "Physical Counting", "count.enter"),
         ("history", "/history", "bi-clock-history", "Count History", "view"),
         ("reconciliation", "/reconciliation", "bi-arrow-left-right", "Odoo Reconciliation", "view"),
+        ("imports", "/imports", "bi-upload", "Data Import", "import.run"),
     ]),
     ("Analysis", [
         ("amc", "/analysis/amc", "bi-graph-up", "AMC Analysis", "view"),

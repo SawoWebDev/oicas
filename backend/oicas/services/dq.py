@@ -32,6 +32,7 @@ KINDS: dict[str, str] = {
     "unknown_classification": "ABC category not found in the classification matrix",
     "sync_failed": "Odoo synchronisation failed",
     "uom_variant": "Unit of measure spelled differently from its canonical form",
+    "not_in_odoo": "Tracked item has no Odoo product (imported or not yet encoded in Odoo)",
 }
 
 

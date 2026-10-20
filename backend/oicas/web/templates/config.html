@@ -85,9 +85,9 @@
     <p>Imports the AMC/ABC workbook, the Masterlist and the COUNTED LIST from <span class="mono">docs/reference/</span>: items, families, demand, the legacy analysis results (approved as the baseline run), Odoo downloads, every count line and its reconciliation. Each file can be imported once.</p>
     <form method="post" action="/config/import/legacy"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn btn-primary btn-sm" {% if not ref_available %}disabled{% endif %} data-confirm="Run the one-off legacy migration?">Migrate legacy workbooks</button></form>
   </div></div></div>
-  <div class="col-xl-6"><div class="card-soft h-100"><div class="card-head"><h2>Item attributes upload</h2></div><div class="card-body-soft small">
-    <p>Excel with columns <span class="mono">RM CODE</span> and any of <span class="mono">MATERIAL SECTION, ABC FAMILY, PLANT LOCATION, REMARK, TRACKED</span>. Each change is validated and audited.</p>
-    <form method="post" action="/config/import/items" enctype="multipart/form-data" class="d-flex gap-2"><input type="hidden" name="csrf" value="{{ csrf }}"><input class="form-control form-control-sm" type="file" name="file" accept=".xlsx" required><button class="btn btn-soft btn-sm">Upload</button></form>
+  <div class="col-xl-6"><div class="card-soft h-100"><div class="card-head"><h2>Items, balances, counts, demand</h2></div><div class="card-body-soft small">
+    <p>Recurring imports with templates and dry run (items not in Odoo, book balances, count lines, demand, item attributes) are in <b>Data Import</b>.</p>
+    <a class="btn btn-soft btn-sm" href="/imports"><i class="bi bi-upload"></i> Open Data Import</a>
   </div></div></div>
 </div>
 <div class="card-soft"><div class="card-head"><h2>Import history</h2></div>
