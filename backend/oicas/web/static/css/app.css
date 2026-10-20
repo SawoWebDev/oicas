@@ -1,8 +1,7 @@
 /* OICAS additions on top of the General Automation System base stylesheet (gas-base.css). */
 
-/* Whole interface shown at 90 % (gas-base.css uses 80 %). Change both values below together:
-   --ui-zoom and the overlay size (100 / zoom). */
-:root { --ui-zoom: 0.9; }
+/* Whole interface shown at 75 % (gas-base.css uses 80 %). Change --ui-zoom only; overlays follow it. */
+:root { --ui-zoom: 0.75; }
 html { zoom: var(--ui-zoom); }
 .sidebar { overflow-y: auto; }
 .nav-section { margin-top: 12px; }
