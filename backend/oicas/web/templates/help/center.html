@@ -4,12 +4,16 @@
 {% block content %}
 <div class="row g-3">
   <div class="col-xl-3 d-none d-xl-block">
-    <div class="card-soft help-toc p-2">
+    <nav class="card-soft help-toc p-2" aria-label="Help topics">
       {% for g, items in groups.items() %}
-        <div class="grp">{{ g }}</div>
-        {% for k, t, icon in items %}<a href="#help-{{ k }}"><i class="bi {{ icon }}"></i> {{ t }}</a>{% endfor %}
+        <div class="grp d-block">{{ g }}</div>
+        <ul class="list-unstyled mb-1">
+          {% for k, t, icon in items %}
+            <li class="d-block"><a class="d-flex align-items-center gap-2 px-2 py-1 rounded text-decoration-none" href="#help-{{ k }}"><i class="bi {{ icon }} flex-none"></i><span>{{ t }}</span></a></li>
+          {% endfor %}
+        </ul>
       {% endfor %}
-    </div>
+    </nav>
   </div>
   <div class="col-xl-9">
     <div class="card-soft mb-3"><div class="card-body-soft">

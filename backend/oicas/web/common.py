@@ -20,6 +20,20 @@ from ..services.exports import fmt
 
 BASE = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=str(BASE / "templates"))
+
+
+def _static_version() -> str:
+    """Fingerprint of our own CSS/JS: appended as ?v=… so browsers fetch new files after an update."""
+    import hashlib
+    h = hashlib.sha256()
+    for rel in ("css/gas-base.css", "css/app.css", "js/app.js"):
+        p = BASE / "static" / rel
+        if p.exists():
+            h.update(p.read_bytes())
+    return h.hexdigest()[:10]
+
+
+STATIC_V = _static_version()
 FLASH = "oicas_flash"
 
 NAV = [
@@ -161,7 +175,7 @@ def base_context(request: Request, db: Session | None) -> dict:
     ctx = {"request": request, "user": user, "csrf": sess.csrf_token if sess else "", "nav": NAV,
            "can": (lambda p: security.has_permission(user, p)), "flash_msg": msg, "fmt": fmt, "pill": pill, "cell": cell,
            "query": lambda **kw: query(request, **kw), "version": __version__, "settings": get_settings(),
-           "today": date.today(), "humanize": humanize, "erp_ready": erp_ready(request) if user else False}
+           "today": date.today(), "humanize": humanize, "static_v": STATIC_V, "erp_ready": erp_ready(request) if user else False}
     if db is not None and user is not None:
         ctx["sync_state"] = sync.staleness(db, sync.latest_snapshot(db))
         ctx["dq_open"] = sum(dq.open_counts(db).values())

@@ -9,8 +9,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link href="/static/vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
   <link href="/static/vendor/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
-  <link href="/static/css/gas-base.css" rel="stylesheet">
-  <link href="/static/css/app.css" rel="stylesheet">
+  <link href="/static/css/gas-base.css?v={{ static_v }}" rel="stylesheet">
+  <link href="/static/css/app.css?v={{ static_v }}" rel="stylesheet">
 </head>
 <body hx-headers='{"X-CSRF-Token": "{{ csrf }}"}' data-help="{{ help_topic|default(active if active is defined and active != 'help' else ('overview' if user else 'login')) }}">
 {% block body %}
@@ -107,6 +107,6 @@
 <script src="/static/vendor/bootstrap/bootstrap.bundle.min.js"></script>
 <script src="/static/vendor/htmx.min.js"></script>
 <script src="/static/vendor/chart.umd.min.js"></script>
-<script src="/static/js/app.js"></script>
+<script src="/static/js/app.js?v={{ static_v }}"></script>
 </body>
 </html>
