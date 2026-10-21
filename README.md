@@ -30,6 +30,8 @@ docker compose exec web python -m oicas.cli sync            # first (simulated) 
 
 Log in as `admin` / `manager` / `counter` / `viewer` with password `demo` (fake mode only).
 
+**Ready-made demo data:** instead of the import/sync steps, load the bundled demo database into the secondary database `oicas_demo` — see [demo/README.md](demo/README.md). The primary database `oicas` is for live data only.
+
 **Live vs demo:** `ODOO_MODE=live` connects to the real Odoo, lets users log in with their Odoo username/email and password, and stores everything in the **primary** database (`oicas`). `ODOO_MODE=fake` uses the simulated Odoo, the demo accounts and the **secondary** database (`oicas_demo`). The two never share data. Change the value in `.env`, then run `docker compose up -d`. Then go to **System Configuration → Odoo locations**, map `WH/Stock` → WAREHOUSE and `WH/Pre-Production` → PRODUCTION, and run *Sync Odoo now*.
 
 Connecting to the real Odoo: see [docs/odoo-integration.md](docs/odoo-integration.md). Production deployment, backups and operations: see [docs/admin-guide.md](docs/admin-guide.md).
@@ -57,6 +59,7 @@ docker run --rm -v "$PWD:/repo" -w /repo/backend oicas-dev python -m pytest -q
 | [docs/reference/](docs/reference/) | The four legacy workbooks (business data: keep this repository **private**) |
 | [docs/architecture.md](docs/architecture.md) · [user-guide.md](docs/user-guide.md) · [admin-guide.md](docs/admin-guide.md) · [odoo-integration.md](docs/odoo-integration.md) · [parity-results.md](docs/parity-results.md) | Documentation |
 | [tools/](tools/) | Workbook analysis scripts used in Phase 1 |
+| [demo/](demo/) | Demo database dump (secondary database `oicas_demo`, fake mode) and how to load it |
 | [compose.yaml](compose.yaml), [.env.example](.env.example) | Deployment |
 
 ## How the Excel workflow maps to OICAS
@@ -77,7 +80,7 @@ docker run --rm -v "$PWD:/repo" -w /repo/backend oicas-dev python -m pytest -q
 1. Record every change in the **Change Log** of [TRACKER.md](TRACKER.md) and keep the phase checklist current.
 2. Official calculations live only in `engine/`. When a rule changes, update the formula register, the business-rules register and the parity tests in the same commit.
 3. Open business questions go in [docs/analysis/10-unresolved-decisions.md](docs/analysis/10-unresolved-decisions.md). Configurable rules change through a **new rule-set version**, never through code edits.
-4. Never commit `.env`, secrets, database dumps or production exports. OICAS must stay **read-only toward Odoo**.
+4. Never commit `.env`, secrets, database dumps or production exports. The only exception is the demo dump in [demo/](demo/), taken from the secondary database `oicas_demo` — never from the primary (live) database. OICAS must stay **read-only toward Odoo**.
 
 ## Screenshots
 
