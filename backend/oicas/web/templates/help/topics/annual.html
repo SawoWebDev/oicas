@@ -1,0 +1,15 @@
+<p class="help-lead">A simple log for the yearly inventory. Every line records one <b>item code</b>, a <b>quantity</b> and a <b>location</b> for a period (<b>P1–P4</b>), an area (<b>Warehouse</b> or <b>Production</b>) and a <b>section</b>.</p>
+<h3>Logging an entry</h3>
+<ol class="help-steps">
+  <li>Open <span class="ui">Inventory → Annual Inventory</span> and hover a plant (<b>Plant 1–4</b>). Hover <b>Warehouse</b> or <b>Production</b> in the dropdown, then click <b>Section 1</b> or <b>Section 2</b>. The counts show how many entries are logged there.</li>
+  <li>The breadcrumb at the top (e.g. <b>Annual Inventory › Plant 1 › Warehouse › Section 1</b>) shows where you are; <span class="ui">Back</span> (or the first crumb) returns to the plants.</li>
+  <li>Fill <b>Item code</b>, <b>Quantity</b> and <b>Location</b> (Remarks is optional). Quantity accepts numbers only (e.g. 12 or 1,250.5). Suggestions from earlier entries appear as you type: use <span class="kbd">↑</span> <span class="kbd">↓</span> and <span class="kbd">Enter</span> to pick one.</li>
+  <li>Click <span class="ui">Enter</span> or press <span class="kbd">Enter</span> on the keyboard. The button stays grey until the required fields are filled.</li>
+</ol>
+<h3>The table</h3>
+<ul>
+  <li>The search box looks in every column. Click a heading to sort.</li>
+  <li>Click <b>⋮</b> at the end of a row: <span class="ui">Details</span> shows who logged it and when and who edited it last; <span class="ui">Edit</span> changes the row in place (<span class="kbd">Enter</span> saves, <span class="kbd">Esc</span> cancels); <span class="ui">Delete</span> asks for confirmation.</li>
+  <li>Every add, edit and delete is also written to the <a href="#help-audit" data-help-topic="audit">Audit Trail</a>.</li>
+</ul>
+<div class="help-note">This log is separate from Physical Counting and is not compared with Odoo yet. Quantities cannot be negative; enter 0 only if you checked and found none.</div>

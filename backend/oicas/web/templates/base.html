@@ -71,9 +71,6 @@
       </div>
     </header>
 
-    {% if settings.odoo_mode == 'fake' %}
-      <div class="env-banner"><i class="bi bi-cone-striped"></i><span><b>Demo mode</b> — Odoo is simulated (ODOO_MODE=fake) and you are working in the <b>secondary demo database</b>. Nothing here affects live data. Set ODOO_MODE=live to use the primary database.</span></div>
-    {% endif %}
     {% if sync_state and sync_state.stale %}
       <div class="stale-banner"><i class="bi bi-exclamation-triangle"></i><span>
         {% if sync_state.snapshot %}Odoo data is stale: the latest successful snapshot is {{ '%.0f'|format(sync_state.age_hours) }} h old (limit {{ '%.0f'|format(sync_state.threshold_hours) }} h). Figures from Odoo are <b>not current</b>.
@@ -81,17 +78,30 @@
         {% if sync_state.last_run and sync_state.last_run.status == 'failed' %} Last sync failed: {{ sync_state.last_run.error }}{% endif %}
       </span></div>
     {% endif %}
-    {% if flash_msg %}
-      <div class="alert alert-{{ flash_msg[0] }} alert-dismissible fade show py-2" role="alert">
-        {{ flash_msg[1] }}
-        <button type="button" class="btn-close py-2" data-bs-dismiss="alert"></button>
-      </div>
-    {% endif %}
 
     {% block content %}{% endblock %}
+    {% if settings.odoo_mode == 'fake' %}
+      <div class="env-banner env-fixed" role="note"><i class="bi bi-cone-striped"></i><span><b>Demo mode</b> — Odoo is simulated (ODOO_MODE=fake) and you are working in the <b>secondary demo database</b>. Nothing here affects live data. Set ODOO_MODE=live to use the primary database.</span></div>
+    {% endif %}
     <div class="small-note text-center mt-4">OICAS v{{ version }} · read-only toward Odoo</div>
   </main>
 {% endblock %}
+{# Toasts: flash messages pop up bottom-right (green = saved, red = deleted / error, blue = updated, orange = warning) #}
+{% set toast_kinds = {'success': ('bi-check-circle-fill', 'Saved'), 'delete': ('bi-trash3-fill', 'Deleted'), 'danger': ('bi-x-circle-fill', 'Error'),
+                      'warning': ('bi-exclamation-triangle-fill', 'Warning'), 'info': ('bi-info-circle-fill', 'Updated')} %}
+<div class="toast-stack" id="toast-stack" aria-live="polite">
+  {% if flash_msg %}{% set kind = flash_msg[0] if flash_msg[0] in toast_kinds else 'info' %}
+    {% set undo = flash_msg[2] if flash_msg|length > 2 else None %}
+    <div class="oi-toast toast-{{ kind }}" role="{{ 'alert' if kind in ('danger', 'warning') else 'status' }}" data-ttl="{{ 8000 if undo else (7000 if kind in ('danger', 'warning') else 4500) }}">
+      <span class="oi-toast-ic"><i class="bi {{ toast_kinds[kind][0] }}"></i></span>
+      <div class="oi-toast-body"><div class="oi-toast-title">{{ toast_kinds[kind][1] }}</div><div class="oi-toast-msg">{{ flash_msg[1] }}</div>
+        {% if undo %}<form method="post" action="{{ undo }}" class="oi-toast-act"><input type="hidden" name="csrf" value="{{ csrf }}">
+          <button class="oi-toast-undo"><i class="bi bi-arrow-counterclockwise"></i> Undo</button></form>{% endif %}</div>
+      <button type="button" class="oi-toast-x" aria-label="Dismiss"><i class="bi bi-x-lg"></i></button>
+      <span class="oi-toast-bar"></span>
+    </div>
+  {% endif %}
+</div>
 {# Help: visible on every page; F1 or the button opens help for the current page #}
 <button type="button" class="help-fab" id="help-fab" title="Help (F1)" aria-label="Open help (F1)"><i class="bi bi-question-lg"></i><span class="help-fab-key">F1</span></button>
 <div class="offcanvas offcanvas-end help-panel" tabindex="-1" id="help-panel" aria-labelledby="help-panel-title">
@@ -108,5 +118,6 @@
 <script src="/static/vendor/htmx.min.js"></script>
 <script src="/static/vendor/chart.umd.min.js"></script>
 <script src="/static/js/app.js?v={{ static_v }}"></script>
+{% block scripts %}{% endblock %}
 </body>
 </html>

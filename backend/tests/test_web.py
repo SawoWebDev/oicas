@@ -194,8 +194,260 @@ def test_help_center_and_context_help(client):
     assert "F1" in client.get("/static/js/app.js").text
 
 
+def test_annual_inventory_flow(client):
+    from oicas.models import AnnualInventoryEntry, AuditLog
+    login(client, "viewer")
+    assert client.get("/annual-inventory").status_code == 403
+    assert client.get("/api/annual-inventory/suggest?field=location").status_code == 403
+
+    login(client, "counter")
+    log_url = "/annual-inventory/P2/warehouse/1"
+    # landing: hover a plant → Warehouse / Production → sections; the log page keeps a breadcrumb and a Back link
+    plants = client.get("/annual-inventory").text
+    assert "Plant 1" in plants and 'id="annual-form"' not in plants and 'class="plant-menu"' in plants
+    for target in ("P1/warehouse/1", "P4/production/2"):
+        assert f'href="/annual-inventory/{target}"' in plants
+    assert 'class="btn btn-soft btn-sm annual-back"' not in plants  # top level: nothing to go back to
+    page = client.get(log_url)
+    assert page.status_code == 200 and 'id="annual-form"' in page.text and 'aria-current="page">Section 1<' in page.text
+    assert 'annual-back" href="/annual-inventory"' in page.text and "Plant 2" in page.text
+    assert re.search(r'data-help="annual"', page.text)
+    # parts without a page of their own, and unknown parts, go back to the landing page
+    for bad_url in ("/annual-inventory/P2", "/annual-inventory/P2/warehouse", "/annual-inventory/P9",
+                    "/annual-inventory/P2/attic", "/annual-inventory/P2/warehouse/7"):
+        r = client.get(bad_url, follow_redirects=False)
+        assert r.status_code == 303 and r.headers["location"] == "/annual-inventory", bad_url
+    token = csrf(client, log_url)
+    scope = {"csrf": token, "period": "P2", "area": "WAREHOUSE", "section": "1"}
+
+    def post(url, **kw):
+        return client.post(url, data={**scope, **kw}, follow_redirects=False)
+
+    r = post("/annual-inventory/entries", item_code="RM-AN-1", qty="1,250.5", location="Rack A1", remarks="ok")
+    assert r.status_code == 303 and r.headers["location"] == log_url
+    post("/annual-inventory/entries", item_code="RM-AN-2", qty="3", location="Rack B2")
+    # invalid input is refused and nothing is saved (quantity must be a plain number)
+    for bad in ({"item_code": "", "qty": "1", "location": "x"}, {"item_code": "X", "qty": "abc", "location": "x"},
+                {"item_code": "X", "qty": "-1", "location": "x"}, {"item_code": "X", "qty": "1", "location": " "},
+                {"item_code": "X", "qty": "1e5", "location": "x"}, {"item_code": "X", "qty": "nan", "location": "x"},
+                {"item_code": "X", "qty": "12abc", "location": "x"}, {"item_code": "X", "qty": "", "location": "x"}):
+        post("/annual-inventory/entries", **bad)
+    post("/annual-inventory/entries", item_code="X", qty="1", location="x", section="9")  # unknown section: refused
+
+    db = session_factory()()
+    rows = db.scalars(select(AnnualInventoryEntry).order_by(AnnualInventoryEntry.id)).all()
+    assert [(e.period, e.area, e.section, e.item_code, e.qty, e.location) for e in rows] == [
+        ("P2", "WAREHOUSE", 1, "RM-AN-1", 1250.5, "Rack A1"), ("P2", "WAREHOUSE", 1, "RM-AN-2", 3.0, "Rack B2")]
+    assert rows[0].created_by_id is not None and rows[0].remarks == "ok"
+    first = rows[0].id
+    db.close()
+
+    shown = client.get(log_url).text
+    assert "RM-AN-1" in shown and "Rack B2" in shown
+    assert 'data-who="Demo Counter"' in shown and 'id="detail-modal"' in shown  # who logged it shows in the Details modal
+    assert "detail-row" not in shown  # details no longer add a row to the table
+    assert "RM-AN-1" not in client.get("/annual-inventory/P1/warehouse/1").text  # other plant
+    assert "RM-AN-1" not in client.get("/annual-inventory/P2/production/2").text
+    assert "<b>2</b> entries" in client.get("/annual-inventory").text  # counts roll up onto the plant cards
+
+    # suggestions come from the log (prefix matches first, case-insensitive)
+    assert client.get("/api/annual-inventory/suggest?field=item_code&q=rm-an").json() == ["RM-AN-1", "RM-AN-2"]
+    assert client.get("/api/annual-inventory/suggest?field=location&q=b2").json() == ["Rack B2"]
+    assert set(client.get("/api/annual-inventory/suggest?field=location").json()) == {"Rack A1", "Rack B2"}
+    assert client.get("/api/annual-inventory/suggest?field=bogus&q=a").json() == []
+
+    r = post(f"/annual-inventory/entries/{first}/edit", item_code="RM-AN-1", qty="10", location="Rack A9", remarks="")
+    assert r.status_code == 303
+    db = session_factory()()
+    e = db.get(AnnualInventoryEntry, first)
+    assert (e.qty, e.location, e.remarks) == (10.0, "Rack A9", None) and e.updated_by_id and e.updated_at
+    db.close()
+
+    assert "toast-info" in client.get(log_url).text  # the edit's flash message pops up as a blue toast
+    r = post(f"/annual-inventory/entries/{first}/delete")
+    assert r.status_code == 303
+    gone = client.get(log_url).text
+    assert 'class="oi-toast toast-delete"' in gone and "alert-dismissible" not in gone  # red toast, no banner row
+    undo_url = re.search(r'action="(/annual-inventory/undo/\d+)"', gone).group(1)  # the toast offers Undo
+    assert 'data-code="RM-AN-1"' not in gone  # the row is gone from the table
+    # Undo brings the entry back (once), keeping who logged it and when
+    u = client.post(undo_url, data={"csrf": csrf(client, log_url)}, follow_redirects=False)
+    assert u.status_code == 303 and u.headers["location"] == log_url
+    back = client.get(log_url).text
+    assert "RM-AN-1" in back and "Restored" in back and 'class="oi-toast toast-success"' in back
+    db = session_factory()()
+    again = db.scalars(select(AnnualInventoryEntry).where(AnnualInventoryEntry.item_code == "RM-AN-1")).one()
+    assert again.id != first and again.created_by_id is not None and again.qty == 10.0 and again.location == "Rack A9"
+    db.close()
+    assert "toast-danger" in client.get(client.post(undo_url, data={"csrf": csrf(client, log_url)}, follow_redirects=False)
+                                        .headers["location"]).text  # second undo: already restored
+    first = again.id
+    assert post(f"/annual-inventory/entries/{first}/delete").status_code == 303  # delete again for the audit check below
+    assert post("/annual-inventory/entries/99999/delete").status_code == 303  # unknown id: flash error, no crash
+    assert "toast-danger" in client.get(log_url).text
+    db = session_factory()()
+    assert db.get(AnnualInventoryEntry, first) is None
+    actions = [a.action for a in db.scalars(select(AuditLog).where(AuditLog.action.like("annual.%")).order_by(AuditLog.id))]
+    assert actions == ["annual.add", "annual.add", "annual.edit", "annual.delete", "annual.restore", "annual.delete"]
+    db.close()
+    # CSRF is enforced
+    assert client.post("/annual-inventory/entries", data={"item_code": "Z", "qty": "1", "location": "z"}).status_code == 403
+
+
+def test_annual_entry_numbers(client):
+    from oicas.models import AnnualInventoryEntry
+    login(client, "counter")
+    url = "/annual-inventory/P3/production/2"
+    token = csrf(client, url)
+    scope = {"csrf": token, "period": "P3", "area": "PRODUCTION", "section": "2"}
+
+    def add(**kw):
+        return client.post("/annual-inventory/entries", data={**scope, "item_code": "EN-1", "qty": "1", "location": "L", **kw},
+                           follow_redirects=False)
+
+    def nos(sec="2", area="PRODUCTION"):
+        db = session_factory()()
+        out = db.scalars(select(AnnualInventoryEntry.entry_no).where(
+            AnnualInventoryEntry.period == "P3", AnnualInventoryEntry.area == area,
+            AnnualInventoryEntry.section == int(sec)).order_by(AnnualInventoryEntry.entry_no)).all()
+        db.close()
+        return list(out)
+
+    def next_no(u=url):
+        return int(re.search(r'id="f-no" name="entry_no" value="(\d+)"', client.get(u).text).group(1))
+
+    assert next_no() == 40900  # first entry of a section
+    add()
+    assert nos() == [40900] and next_no() == 40901  # the series carries on by itself
+    add()
+    assert nos() == [40900, 40901] and next_no() == 40902
+    # type a number to jump (e.g. after cancellations): the series continues from it
+    add(entry_no="40910")
+    assert next_no() == 40911
+    add()
+    assert nos() == [40900, 40901, 40910, 40911] and next_no() == 40912
+    # a number can be used once per section; only whole numbers are accepted
+    for bad in ("40910", "40x", "0", "-5", "4.5", "1234567890"):
+        add(entry_no=bad)
+    assert nos() == [40900, 40901, 40910, 40911]
+    # another section has its own series
+    assert next_no("/annual-inventory/P3/production/1") == 40900
+    assert next_no("/annual-inventory/P3/warehouse/2") == 40900
+    # editing: change to a free number, but not to one in use; blank keeps the current number
+    db = session_factory()()
+    eid = db.scalars(select(AnnualInventoryEntry.id).where(AnnualInventoryEntry.period == "P3", AnnualInventoryEntry.entry_no == 40901)).one()
+    db.close()
+    edit = f"/annual-inventory/entries/{eid}/edit"
+    client.post(edit, data={**scope, "item_code": "EN-1", "qty": "1", "location": "L", "entry_no": "40911"})  # taken
+    assert 40901 in nos()
+    client.post(edit, data={**scope, "item_code": "EN-1", "qty": "2", "location": "L", "entry_no": ""})  # blank: unchanged
+    assert 40901 in nos()
+    client.post(edit, data={**scope, "item_code": "EN-1", "qty": "2", "location": "L", "entry_no": "40905"})
+    assert nos() == [40900, 40905, 40910, 40911]
+    # table shows the numbers; deleting the highest frees its number
+    page = client.get(url).text
+    assert 'class="view entry-no">40911<' in page and "Entry No." in page
+    db = session_factory()()
+    top = db.scalars(select(AnnualInventoryEntry.id).where(AnnualInventoryEntry.period == "P3", AnnualInventoryEntry.entry_no == 40911)).one()
+    db.close()
+    client.post(f"/annual-inventory/entries/{top}/delete", data=scope, follow_redirects=False)
+    after = client.get(url).text  # carries the Undo toast (one-time message)
+    assert int(re.search(r'id="f-no" name="entry_no" value="(\d+)"', after).group(1)) == 40911
+    undo = re.search(r'action="(/annual-inventory/undo/\d+)"', after).group(1)
+    # Undo puts the number back, unless it has been reused meanwhile
+    add(entry_no="40911")  # someone reuses the freed number
+    client.post(undo, data={"csrf": token}, follow_redirects=False)
+    assert nos() == [40900, 40905, 40910, 40911]  # not restored: only the reused 40911 exists
+    refused = client.get(url).text
+    assert "toast-danger" in refused and "now used by another entry" in refused
+
+
+def test_annual_item_code_suggestions(client):
+    login(client, "counter")
+    token = csrf(client, "/annual-inventory/P4/warehouse/1")
+    scope = {"csrf": token, "period": "P4", "area": "WAREHOUSE", "section": "1", "qty": "1", "location": "L"}
+    for code in ("ZZ3-1", "3ZZ-2", "Q3Q-3", "QQ-9"):
+        client.post("/annual-inventory/entries", data={**scope, "item_code": code}, follow_redirects=False)
+
+    def codes(q):
+        return [r["code"] for r in client.get("/api/annual-inventory/lookup", params={"q": q}).json()]
+
+    got = codes("3")  # one character is enough
+    assert got and "QQ-9" not in got and {"ZZ3-1", "3ZZ-2", "Q3Q-3"} <= set(got)
+    firsts = [i for i, c in enumerate(got) if c.casefold().startswith("3")]
+    others = [i for i, c in enumerate(got) if not c.casefold().startswith("3")]
+    assert firsts and others and max(firsts) < min(others)  # codes starting with 3 first, then the ones containing it
+    assert codes("zz3")[0] == "ZZ3-1"  # case-insensitive
+    assert codes("")  # a click on the empty field lists something to pick from
+
+
+def test_annual_reconciliation_badge_is_a_filter_control(client):
+    login(client, "counter")
+    url = "/annual-inventory/P4/production/2"
+    token = csrf(client, url)
+    scope = {"csrf": token, "period": "P4", "area": "PRODUCTION", "section": "2", "location": "L"}
+    for code, q in (("RC-1", "10"), ("RC-1", "20"), ("RC-2", "5")):
+        client.post("/annual-inventory/entries", data={**scope, "item_code": code, "qty": q}, follow_redirects=False)
+    page = client.get(url).text
+    assert page.count('data-recon="RC-1"') == 2 and 'data-recon="RC-2"' not in page  # only repeated codes get a badge
+    assert 'id="recon-th"' in page and 'data-recon-clear' in page and 'id="recon-chip"' in page
+    head = page.split("<thead>")[1].split("</thead>")[0]
+    assert head.index("Reconciliation") < head.index("Entry No.") < head.index("Actions")  # Entry No. sits right of Reconciliation
+    assert all("text-end" not in th for th in head.split("<th")[:-1])  # data headers are left-aligned; only the last (row menu) isn't
+    assert "annual.js" in page and "setRecon" in client.get("/static/js/annual.js").text
+
+
+def test_annual_excel_export(client):
+    import io
+
+    from openpyxl import load_workbook
+    from oicas.models import AuditLog
+    login(client, "viewer")
+    assert client.get("/annual-inventory/export.xlsx").status_code == 403
+    login(client, "counter")
+    url = "/annual-inventory/P4/warehouse/2"
+    token = csrf(client, url)
+    scope = {"csrf": token, "period": "P4", "area": "WAREHOUSE", "section": "2", "location": "Rack X"}
+    for code, q, no in (("EX-1", "10", ""), ("EX-2", "7.5", ""), ("EX-1", "1,250.5", "40950")):
+        client.post("/annual-inventory/entries", data={**scope, "item_code": code, "qty": q, "entry_no": no, "remarks": "r " + code},
+                    follow_redirects=False)
+    page = client.get(url).text
+    assert 'href="/annual-inventory/P4/warehouse/2/export.xlsx"' in page and "Export Excel" in page
+    assert 'href="/annual-inventory/export.xlsx"' in client.get("/annual-inventory").text
+
+    r = client.get(url + "/export.xlsx")
+    assert r.status_code == 200 and r.content[:2] == b"PK" and "attachment" in r.headers["content-disposition"]
+    assert "annual_inventory_P4_warehouse_s2" in r.headers["content-disposition"]
+    ws = load_workbook(io.BytesIO(r.content)).active
+    header_row = next(i for i in range(1, 15) if ws.cell(i, 1).value == "Item code")
+    heads = [c.value for c in ws[header_row]]
+    assert heads[:7] == ["Item code", "Quantity", "Location", "Remarks", "Reconciliation", "Combined qty", "Entry No."]
+    data = [[c.value for c in row] for row in ws.iter_rows(min_row=header_row + 1) if row[0].value]
+    assert [(d[0], d[1], d[6]) for d in data] == [("EX-1", 10.0, 40900), ("EX-2", 7.5, 40901), ("EX-1", 1250.5, 40950)]  # all rows, by Entry No.
+    assert data[0][4] == "First of 2 · total 1,260.5" and data[2][4].startswith("Entry 2 of 2") and data[1][4] in ("", None)
+    assert data[0][5] == 1260.5 and data[0][7] == "Demo Counter" and data[0][8] is not None  # logged by / at are in the file
+    assert ws.freeze_panes and ws.auto_filter.ref
+    # everything: summary sheet + one sheet per section, and bad scopes are 404
+    wb = load_workbook(io.BytesIO(client.get("/annual-inventory/export.xlsx").content))
+    assert wb.sheetnames[0] == "Summary" and "P4 Warehouse S2" in wb.sheetnames and len(wb.sheetnames) == 1 + 16
+    assert client.get("/annual-inventory/P9/warehouse/2/export.xlsx").status_code == 404
+    db = session_factory()()
+    assert db.scalars(select(AuditLog).where(AuditLog.action == "annual.export")).all()  # exports are audited
+    db.close()
+
+
 def test_logout_revokes_session(client):
     login(client, "admin")
     token = csrf(client)
     client.post("/logout", data={"csrf": token})
     assert client.get("/", follow_redirects=False).status_code == 303
+
+
+def test_annual_reconcile_groups_same_codes():
+    from types import SimpleNamespace as NS
+    from oicas.services import annual
+    rows = [NS(id=3, item_code="rm-1", qty=5.0), NS(id=1, item_code="RM-1", qty=10.0), NS(id=2, item_code="RM-2", qty=1.0)]
+    rec = annual.reconcile(rows)
+    assert set(rec) == {1, 3}  # RM-2 was logged once: nothing to reconcile
+    assert rec[1] == {"n": 1, "count": 2, "total": 15.0, "first": True}
+    assert rec[3]["n"] == 2 and rec[3]["first"] is False

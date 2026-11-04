@@ -26,7 +26,7 @@ def _static_version() -> str:
     """Fingerprint of our own CSS/JS: appended as ?v=… so browsers fetch new files after an update."""
     import hashlib
     h = hashlib.sha256()
-    for rel in ("css/gas-base.css", "css/app.css", "js/app.js"):
+    for rel in ("css/gas-base.css", "css/app.css", "js/app.js", "js/annual.js"):
         p = BASE / "static" / rel
         if p.exists():
             h.update(p.read_bytes())
@@ -43,6 +43,7 @@ NAV = [
         ("masterlist", "/masterlist", "bi-list-ul", "Inventory Masterlist", "view"),
         ("planning", "/planning", "bi-calendar2-check", "Cycle Count Planning", "view"),
         ("counting", "/counting", "bi-clipboard-check", "Physical Counting", "count.enter"),
+        ("annual", "/annual-inventory", "bi-journal-check", "Annual Inventory", "count.enter"),
         ("history", "/history", "bi-clock-history", "Count History", "view"),
         ("reconciliation", "/reconciliation", "bi-arrow-left-right", "Odoo Reconciliation", "view"),
         ("imports", "/imports", "bi-upload", "Data Import", "import.run"),
@@ -81,16 +82,18 @@ def _signer() -> URLSafeSerializer:
     return URLSafeSerializer(get_settings().secret_key, salt="flash")
 
 
-def flash(resp, message: str, level: str = "success"):
-    resp.set_cookie(FLASH, _signer().dumps([level, message]), max_age=60, httponly=True, samesite="lax",
+def flash(resp, message: str, level: str = "success", undo: str | None = None):
+    """Queue a toast for the next page. ``undo`` is a POST URL; the toast then shows an Undo button that calls it."""
+    payload = [level, message] + ([undo] if undo else [])
+    resp.set_cookie(FLASH, _signer().dumps(payload), max_age=60, httponly=True, samesite="lax",
                     secure=get_settings().cookie_secure)
     return resp
 
 
-def redirect(url: str, message: str | None = None, level: str = "success") -> RedirectResponse:
+def redirect(url: str, message: str | None = None, level: str = "success", undo: str | None = None) -> RedirectResponse:
     resp = RedirectResponse(url, status_code=303)
     if message:
-        flash(resp, message, level)
+        flash(resp, message, level, undo)
     return resp
 
 
@@ -170,6 +173,9 @@ def base_context(request: Request, db: Session | None) -> dict:
     if raw:
         try:
             msg = _signer().loads(raw)
+            # the undo URL must be one of our own paths (the cookie is signed, this is belt and braces)
+            if len(msg) > 2 and not (isinstance(msg[2], str) and msg[2].startswith("/") and not msg[2].startswith("//")):
+                msg = msg[:2]
         except BadSignature:
             msg = None
     ctx = {"request": request, "user": user, "csrf": sess.csrf_token if sess else "", "nav": NAV,

@@ -306,6 +306,32 @@ class CountEntry(Base):
     session: Mapped[CountSession] = relationship(back_populates="entries")
 
 
+class AnnualInventoryEntry(Base):
+    """One logged line of the annual inventory (period P1-P4, Warehouse/Production, section).
+
+    A plain log, independent of count sessions; the keys match what a later reconciliation needs.
+    ``created_by_id`` / ``updated_by_id`` say who logged and who last changed the row.
+    """
+    __tablename__ = "annual_inventory_entry"
+    __table_args__ = (Index("ix_annual_scope", "period", "area", "section"),
+                      Index("ux_annual_entry_no", "period", "area", "section", "entry_no", unique=True))
+    id: Mapped[int] = mapped_column(primary_key=True)
+    period: Mapped[str] = mapped_column(String(4))  # P1..P4
+    area: Mapped[str] = mapped_column(String(20))  # WAREHOUSE / PRODUCTION
+    section: Mapped[int] = mapped_column(Integer)  # 1 / 2
+    entry_no: Mapped[int] = mapped_column(Integer)  # running number within the section (starts at 40900, editable)
+    item_code: Mapped[str] = mapped_column(String(120), index=True)
+    qty: Mapped[float] = mapped_column(Float)
+    location: Mapped[str] = mapped_column(String(120))
+    remarks: Mapped[str | None] = mapped_column(String(500))
+    created_at: Mapped[datetime] = mapped_column(TS, default=utcnow)
+    created_by_id: Mapped[int | None] = mapped_column(ForeignKey("app_user.id"))
+    updated_at: Mapped[datetime | None] = mapped_column(TS)
+    updated_by_id: Mapped[int | None] = mapped_column(ForeignKey("app_user.id"))
+    created_by: Mapped[User | None] = relationship(foreign_keys=[created_by_id])
+    updated_by: Mapped[User | None] = relationship(foreign_keys=[updated_by_id])
+
+
 class Reconciliation(Base):
     """Physical vs Odoo for one item on one count date. Recalculation supersedes (history kept)."""
     __tablename__ = "reconciliation"

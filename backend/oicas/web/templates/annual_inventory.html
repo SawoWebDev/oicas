@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+{% block title %}Annual Inventory{% endblock %}
+{% block page_title %}Annual Inventory{% endblock %}
+
+{% macro last_logged(n, last) -%}
+  {% if n %}<span class="choice-meta"><b>{{ "{:,}".format(n) }}</b> {{ 'entry' if n == 1 else 'entries' }} · last {{ fmt(last, 'datetime') }}</span>
+  {% else %}<span class="choice-meta muted">Nothing logged yet</span>{% endif %}
+{%- endmacro %}
+
+{% block content %}
+{# ---------------------------------------------------------------- breadcrumb + back #}
+<div class="annual-nav">
+  {% if back %}<a class="btn btn-soft btn-sm annual-back" href="{{ back }}" title="Back to plants"><i class="bi bi-arrow-left"></i> Back</a>{% endif %}
+  <nav class="annual-crumbs" aria-label="Breadcrumb">
+    {% for label, href in crumbs %}
+      {% if not loop.last %}{% if href %}<a href="{{ href }}">{{ label }}</a>{% else %}<span class="crumb-text">{{ label }}</span>{% endif %}<i class="bi bi-chevron-right sep" aria-hidden="true"></i>
+      {% else %}<span class="current" aria-current="page">{{ label }}</span>{% endif %}
+    {% endfor %}
+  </nav>
+</div>
+
+{% if step == 'plant' %}
+{# ---------------------------------------------------------------- landing: hover a plant → Warehouse / Production → sections #}
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+  <p class="choice-lead mb-0">Hover a plant, then pick <b>Warehouse</b> or <b>Production</b> and a <b>section</b> to start logging.</p>
+  <a class="btn btn-soft btn-sm" href="{{ url() }}/export.xlsx" title="One workbook: a summary sheet plus one sheet per plant, area and section"><i class="bi bi-file-earmark-excel-fill text-success"></i> Export all to Excel</a>
+</div>
+<div class="row g-3 plant-row">
+  {% for p in periods %}{% set n, last = rollup(summ, p) %}
+  <div class="col-sm-6 col-xl-3">
+    <div class="plant-menu" tabindex="0" aria-haspopup="true">
+      <div class="choice-card">
+        <span class="choice-icon tone-red"><i class="bi bi-buildings-fill"></i></span>
+        <span class="choice-body"><span class="choice-title">{{ period_labels[p] }} <span class="choice-code">{{ p }}</span></span>{{ last_logged(n, last) }}</span>
+        <i class="bi bi-chevron-down choice-go"></i>
+      </div>
+      <div class="plant-flyout" role="menu">
+        {% for key, label in areas.items() %}{% set an, alast = rollup(summ, p, key) %}
+        <div class="area-group" tabindex="0">
+          <span class="area-group-name"><span class="ag-ic {{ 'tone-blue' if key == 'WAREHOUSE' else 'tone-orange' }}"><i class="bi {{ 'bi-building-fill' if key == 'WAREHOUSE' else 'bi-gear-fill' }}"></i></span>
+            {{ label }} <span class="ag-count">{{ an }}</span><i class="bi bi-chevron-right ms-auto small"></i></span>
+          <div class="area-sub" role="menu">
+            {% for s in sections %}
+              <a role="menuitem" href="{{ url(p, key, s) }}"><i class="bi bi-{{ s }}-circle-fill"></i> Section {{ s }} <span class="ag-count">{{ rollup(summ, p, key, s)[0] }}</span></a>
+            {% endfor %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+{% else %}
+{# ---------------------------------------------------------------- log page #}
+<div class="card-soft mb-3" id="entry-form">
+  <div class="card-head">
+    <h2><i class="bi bi-journal-check text-danger"></i> Log an entry</h2>
+    <span class="small-note">Fill the fields and press <span class="kbd">Enter</span> to save</span>
+  </div>
+  <div class="card-body-soft">
+    <form method="post" action="/annual-inventory/entries" class="row g-3 align-items-start" id="annual-form" autocomplete="off" novalidate>
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <input type="hidden" name="period" value="{{ period }}"><input type="hidden" name="area" value="{{ area }}"><input type="hidden" name="section" value="{{ section }}">
+      <div class="col-md-3 typeahead"><label class="form-label annual-label" for="f-code"><i class="bi bi-box-seam-fill"></i> Item code</label>
+        <input class="form-control" id="f-code" name="item_code" data-suggest="item_code" data-fill-loc="#f-loc" data-required autofocus maxlength="120" placeholder="Type a code — Odoo matches show with location"></div>
+      <div class="col-md-2"><label class="form-label annual-label" for="f-qty"><i class="bi bi-hash"></i> Quantity</label>
+        <input class="form-control text-end" id="f-qty" name="qty" data-required data-qty inputmode="decimal" maxlength="20" placeholder="0">
+        <div class="invalid-feedback">Numbers only, e.g. 12 or 1,250.5</div></div>
+      <div class="col-md-2 typeahead"><label class="form-label annual-label" for="f-loc"><i class="bi bi-geo-alt-fill"></i> Location</label>
+        <input class="form-control" id="f-loc" name="location" data-suggest="location" data-required maxlength="120" placeholder="e.g. Rack A1"></div>
+      <div class="col-md-2"><label class="form-label annual-label" for="f-rem">Remarks <span class="muted fw-normal">(optional)</span></label>
+        <input class="form-control" id="f-rem" name="remarks" maxlength="500"></div>
+      <div class="col-md-2"><label class="form-label annual-label" for="f-no"><i class="bi bi-123"></i> Entry No.</label>
+        <input class="form-control text-end fw-semibold" id="f-no" name="entry_no" value="{{ next_no }}" data-required data-int inputmode="numeric" maxlength="9"
+               title="Fills in automatically (next: {{ next_no }}). Type another number to jump the series.">
+        <div class="invalid-feedback">Digits only, e.g. {{ start_no }}</div></div>
+      <div class="col-md-1"><label class="form-label annual-label d-none d-md-block">&nbsp;</label>
+        <button class="btn btn-primary w-100" id="annual-enter" disabled><i class="bi bi-arrow-return-left"></i> Enter</button></div>
+    </form>
+    <div class="small-note mt-2"><i class="bi bi-info-circle-fill"></i> <b>Entry No.</b> numbers this section's entries automatically (starts at {{ start_no }}, next is <b>{{ next_no }}</b>).
+      To skip ahead or reuse a cancelled number, type it in: the series then carries on from there (type {{ next_no + 9 }} and the next entry is {{ next_no + 10 }}). A number can only be used once per section.</div>
+  </div>
+</div>
+
+<div class="card-soft">
+  <div class="card-head">
+    <h2>Logged entries <span class="muted fw-normal" id="annual-count">({{ rows|length }})</span></h2>
+    <span class="recon-chip d-none" id="recon-chip"><i class="bi bi-funnel-fill"></i> Item code <b id="recon-chip-code"></b>
+      <button type="button" class="recon-chip-x" data-recon-clear aria-label="Show all entries"><i class="bi bi-x-lg"></i></button></span>
+    <div class="d-flex align-items-center gap-2">
+      <a class="btn btn-soft btn-sm export-btn" href="{{ url(period, area, section) }}/export.xlsx" title="Download every entry of this section as an Excel file"><i class="bi bi-file-earmark-excel-fill text-success"></i> Export Excel</a>
+      <div class="annual-search"><i class="bi bi-search"></i>
+        <input class="form-control form-control-sm" type="search" id="annual-search" placeholder="Search item, location, remarks, who…" aria-label="Search entries"></div>
+    </div>
+  </div>
+  <div class="annual-table-wrap">
+    <table class="table table-soft" id="annual-table">
+      <thead>
+        <tr>
+          <th data-sort="text">Item code <i class="bi bi-chevron-expand"></i></th>
+          <th data-sort="num">Quantity <i class="bi bi-chevron-expand"></i></th>
+          <th data-sort="text">Location <i class="bi bi-chevron-expand"></i></th>
+          <th data-sort="text">Remarks <i class="bi bi-chevron-expand"></i></th>
+          <th class="recon-th" id="recon-th" data-recon-clear title="Click to show all entries again">Reconciliation <i class="bi bi-funnel-fill recon-th-ic d-none"></i></th>
+          <th data-sort="num" class="no-col">Entry No. <i class="bi bi-chevron-expand"></i></th>
+          <th class="text-end act-col"><span class="visually-hidden">Actions</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for e in rows %}
+        {% set who = (e.created_by.name or e.created_by.login) if e.created_by else '' %}
+        {% set editor = (e.updated_by.name or e.updated_by.login) if e.updated_by else '' %}
+        <tr data-id="{{ e.id }}" data-search="{{ e.entry_no }} {{ e.item_code }} {{ '%g'|format(e.qty) }} {{ e.location }} {{ e.remarks or '' }} {{ who }} {{ editor }}"
+            data-code="{{ e.item_code }}" data-qtyfmt="{{ fmt(e.qty, 'qty') }}" data-loc="{{ e.location }}" data-who="{{ who or '–' }}"
+            data-at="{{ fmt(e.created_at, 'datetime') }}" data-edited="{% if e.updated_at %}{{ editor or '–' }} · {{ fmt(e.updated_at, 'datetime') }}{% endif %}"
+            data-entry="Entry No. {{ e.entry_no }} · {{ period_labels[e.period] }} · {{ areas[e.area] }} · Section {{ e.section }}">
+          <td data-v="{{ e.item_code }}"><span class="view"><a class="row-link" href="/items/{{ e.item_code }}">{{ e.item_code }}</a></span>
+            <input class="form-control form-control-sm edit" form="edit-{{ e.id }}" name="item_code" value="{{ e.item_code }}" data-required maxlength="120" aria-label="Item code"></td>
+          <td data-v="{{ e.qty }}"><span class="view num fw-semibold">{{ fmt(e.qty, 'qty') }}</span>
+            <input class="form-control form-control-sm edit" form="edit-{{ e.id }}" name="qty" value="{{ '%g'|format(e.qty) }}" data-required data-qty inputmode="decimal" maxlength="20" aria-label="Quantity" title="Numbers only"></td>
+          <td data-v="{{ e.location }}"><span class="view"><i class="bi bi-geo-alt-fill loc-ic"></i> {{ e.location }}</span>
+            <input class="form-control form-control-sm edit" form="edit-{{ e.id }}" name="location" value="{{ e.location }}" data-required maxlength="120" aria-label="Location"></td>
+          <td data-v="{{ e.remarks or '' }}"><span class="view remarks">{{ e.remarks or '' }}</span>
+            <input class="form-control form-control-sm edit" form="edit-{{ e.id }}" name="remarks" value="{{ e.remarks or '' }}" maxlength="500" aria-label="Remarks"></td>
+          {% set rc = recon.get(e.id) %}
+          <td class="recon-cell">{% if rc %}<button type="button" class="recon-badge {{ 'is-first' if rc.first else 'is-dup' }}" data-recon="{{ e.item_code }}"
+            title="{{ rc.count }} entries share {{ e.item_code }}; combined {{ fmt(rc.total, 'qty') }}. Click to show only {{ e.item_code }}; click again to show all."><i class="bi bi-intersect"></i>
+            {{ 'First of' if rc.first else 'Entry ' ~ rc.n ~ ' of' }} {{ rc.count }} · total <b>{{ fmt(rc.total, 'qty') }}</b></button>
+            {% else %}<span class="muted">–</span>{% endif %}</td>
+          <td class="no-col" data-v="{{ e.entry_no }}"><span class="view entry-no">{{ e.entry_no }}</span>
+            <input class="form-control form-control-sm edit" form="edit-{{ e.id }}" name="entry_no" value="{{ e.entry_no }}" data-required data-int inputmode="numeric" maxlength="9" aria-label="Entry No." title="Digits only"></td>
+          <td class="text-end act-col">
+            <div class="kebab view">
+              <button type="button" class="kebab-btn" data-kebab aria-haspopup="true" aria-expanded="false" aria-label="Actions for {{ e.item_code }}"><i class="bi bi-three-dots-vertical"></i></button>
+              <div class="kebab-menu" role="menu">
+                <button type="button" class="kebab-item k-details" data-details role="menuitem"><i class="bi bi-info-circle-fill"></i> Details</button>
+                <button type="button" class="kebab-item k-edit" data-edit role="menuitem"><i class="bi bi-pencil-fill"></i> Edit</button>
+                <form method="post" action="/annual-inventory/entries/{{ e.id }}/delete">
+                  <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="period" value="{{ period }}"><input type="hidden" name="area" value="{{ area }}"><input type="hidden" name="section" value="{{ section }}">
+                  <button class="kebab-item k-delete" role="menuitem" data-confirm="Delete {{ e.item_code }} ({{ fmt(e.qty, 'qty') }} at {{ e.location }})? This cannot be undone."><i class="bi bi-trash3-fill"></i> Delete</button>
+                </form>
+              </div>
+            </div>
+            <form method="post" action="/annual-inventory/entries/{{ e.id }}/edit" id="edit-{{ e.id }}" class="edit edit-actions" novalidate>
+              <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="period" value="{{ period }}"><input type="hidden" name="area" value="{{ area }}"><input type="hidden" name="section" value="{{ section }}">
+              <button class="btn btn-success btn-xs" data-save><i class="bi bi-check-circle-fill"></i> Save</button>
+              <button type="button" class="btn btn-danger btn-xs" data-cancel><i class="bi bi-x-circle-fill"></i> Cancel</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+        <tr id="annual-empty" class="{% if rows %}d-none{% endif %}"><td colspan="7" class="annual-empty">
+          <span id="annual-none" class="{% if rows %}d-none{% endif %}"><i class="bi bi-inbox-fill"></i> Nothing logged yet for {{ period_labels[period] }} · {{ areas[area] }} · Section {{ section }}.<br><span class="small-note">Use the form above to log the first item.</span></span>
+          <span id="annual-nomatch" class="d-none"><i class="bi bi-search"></i> No entries match the search.</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="table-foot"><span id="annual-foot">{% if rows %}Showing {{ rows|length }} of {{ rows|length }} entries{% endif %}</span>
+    {% if rows|length >= limit %}<span>Only the latest {{ limit }} are shown</span>{% endif %}</div>
+</div>
+
+{# mini modal for a row's details, filled by annual.js #}
+<div class="oi-modal" id="detail-modal" hidden>
+  <div class="oi-modal-backdrop" data-modal-close></div>
+  <div class="oi-modal-box" role="dialog" aria-modal="true" aria-labelledby="dm-title" tabindex="-1">
+    <div class="oi-modal-head">
+      <span class="d-ic tone-blue"><i class="bi bi-info-circle-fill"></i></span>
+      <div><div class="oi-modal-title" id="dm-title">Entry details</div><div class="oi-modal-sub" id="dm-sub"></div></div>
+      <button type="button" class="btn-close ms-auto" data-modal-close aria-label="Close"></button>
+    </div>
+    <div class="oi-modal-body">
+      <div class="dm-summary"><span class="dm-code" id="dm-code"></span><span class="dm-qty" id="dm-qty"></span><span class="dm-loc"><i class="bi bi-geo-alt-fill"></i> <span id="dm-loc"></span></span></div>
+      <div class="d-item"><span class="d-ic tone-blue"><i class="bi bi-person-fill"></i></span><div><div class="d-lbl">Logged by</div><div class="d-val" id="dm-who"></div></div></div>
+      <div class="d-item"><span class="d-ic tone-green"><i class="bi bi-clock-fill"></i></span><div><div class="d-lbl">Logged at</div><div class="d-val" id="dm-at"></div></div></div>
+      <div class="d-item"><span class="d-ic tone-orange"><i class="bi bi-pencil-square"></i></span><div><div class="d-lbl">Last edited</div><div class="d-val" id="dm-edited"></div></div></div>
+    </div>
+    <div class="oi-modal-foot"><button type="button" class="btn btn-soft btn-sm" data-modal-close>Close</button></div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+{% block scripts %}<script src="/static/js/annual.js?v={{ static_v }}"></script>{% endblock %}

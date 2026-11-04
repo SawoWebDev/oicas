@@ -10,6 +10,60 @@
     if (c && !window.confirm(c.getAttribute("data-confirm"))) { e.preventDefault(); e.stopPropagation(); }
   }, true);
 
+  // Toasts: auto-dismiss after data-ttl ms (paused while hovered or focused), or close with the x
+  function toastDismiss(t) {
+    if (t.classList.contains("leaving")) return;
+    t.classList.add("leaving");
+    setTimeout(function () { if (t.parentNode) t.parentNode.removeChild(t); }, 220);
+  }
+  function toastArm(t) {
+    // The progress bar is driven from here (not a CSS animation) so it always runs and stays in step with the timer.
+    var ttl = parseInt(t.getAttribute("data-ttl"), 10) || 4500, left = ttl, started = 0, raf = 0;
+    var bar = t.querySelector(".oi-toast-bar");
+    function frame() {
+      var rem = left - (Date.now() - started);
+      if (rem <= 0) { bar.style.transform = "scaleX(0)"; toastDismiss(t); return; }
+      bar.style.transform = "scaleX(" + (rem / ttl).toFixed(4) + ")";
+      raf = requestAnimationFrame(frame);
+    }
+    function run() { started = Date.now(); raf = requestAnimationFrame(frame); }
+    function pause() { cancelAnimationFrame(raf); left -= Date.now() - started; }
+    t.addEventListener("mouseenter", pause);
+    t.addEventListener("mouseleave", function () { if (left > 0) run(); });
+    t.querySelector(".oi-toast-x").addEventListener("click", function () { cancelAnimationFrame(raf); toastDismiss(t); });
+    run();
+  }
+  document.querySelectorAll(".oi-toast").forEach(toastArm);
+  // Optional: window.oicasToast("Saved.", "success") from other scripts
+  // opts.action = { label, run } adds an Undo-style button; the toast stays 8 s.
+  window.oicasToast = function (message, kind, opts) {
+    var stack = document.getElementById("toast-stack");
+    if (!stack) return;
+    var icons = { success: "bi-check-circle-fill", delete: "bi-trash3-fill", danger: "bi-x-circle-fill", warning: "bi-exclamation-triangle-fill", info: "bi-info-circle-fill" };
+    var titles = { success: "Saved", delete: "Deleted", danger: "Error", warning: "Warning", info: "Updated" };
+    kind = icons[kind] ? kind : "info";
+    var t = document.createElement("div");
+    t.className = "oi-toast toast-" + kind;
+    t.setAttribute("role", kind === "danger" || kind === "warning" ? "alert" : "status");
+    var action = opts && opts.action;
+    t.setAttribute("data-ttl", action ? "8000" : kind === "danger" || kind === "warning" ? "7000" : "4500");
+    t.innerHTML = '<span class="oi-toast-ic"><i class="bi ' + icons[kind] + '"></i></span><div class="oi-toast-body"><div class="oi-toast-title"></div>' +
+      '<div class="oi-toast-msg"></div></div><button type="button" class="oi-toast-x" aria-label="Dismiss"><i class="bi bi-x-lg"></i></button><span class="oi-toast-bar"></span>';
+    t.querySelector(".oi-toast-title").textContent = titles[kind];
+    t.querySelector(".oi-toast-msg").textContent = message;
+    if (action) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "oi-toast-undo";
+      b.innerHTML = '<i class="bi bi-arrow-counterclockwise"></i> ';
+      b.appendChild(document.createTextNode(action.label || "Undo"));
+      b.addEventListener("click", function () { toastDismiss(t); action.run(); });
+      t.querySelector(".oi-toast-body").appendChild(b);
+    }
+    stack.appendChild(t);
+    toastArm(t);
+  };
+
   // Auto-submit filter selects
   document.querySelectorAll("form[data-autosubmit] select").forEach(function (s) {
     s.addEventListener("change", function () { s.form.submit(); });
