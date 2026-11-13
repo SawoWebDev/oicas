@@ -1,0 +1,22 @@
+<p class="help-lead"><span class="ui">AMC Import</span> keeps every uploaded copy of the AMC / ABC Analysis workbook (<i>03_AMC Sep-Jul ABC Analysis.xlsx</i>). Each upload is a <b>session</b>: you can open it to look through the sheets, download the original file again, or delete it.</p>
+<h3>Upload a workbook</h3>
+<ol class="help-steps">
+  <li>Choose the Excel file (.xlsx, up to 30 MB).</li>
+  <li>Check <span class="ui">Uploaded by</span>. It starts with your name; change it if you are uploading for someone else.</li>
+  <li>Press <span class="ui">Upload</span>. Reading a large workbook takes a few seconds, then the new session opens.</li>
+</ol>
+<h3>The session list</h3>
+<p>Each row shows the session number, the date and time of the upload, who uploaded it and the actions:</p>
+<ul>
+  <li><span class="ui">Details</span> opens the workbook in a large window. The sheet tabs along the bottom work like Excel's. Column letters, row numbers and the title row stay in view while you scroll, and on the family sheets and CONSOLIDATED the #, Code and Description columns stay in view too. Use the search box to find a code or description in the current sheet. Long sheets are shown 200 rows per page.</li>
+  <li><span class="ui">Export</span> (or <span class="ui">Export Excel</span> in the window) downloads the file exactly as it was uploaded, formulas and hidden sheets included.</li>
+  <li><span class="ui">Delete</span> removes the session and its file. You are asked to confirm, and it can't be undone.</li>
+</ul>
+<h3>What you see</h3>
+<ul>
+  <li>Values are shown as Excel displays them: percentages such as <i>0.02%</i>, whole numbers, and General numbers. They are the values Excel last calculated and saved in the file.</li>
+  <li>Only <b>visible</b> sheets are shown. Hidden sheets, such as the raw Odoo demand export and the pivot, stay in the downloaded file.</li>
+  <li>Rows hidden by an Excel filter are shown, so you see the whole sheet.</li>
+</ul>
+<h3>Who can do what</h3>
+<p>Everyone can view and export. Uploading and deleting need the <b>manager</b> role or higher. Uploads, downloads and deletions are recorded in the <a href="#help-audit" data-help-topic="audit">Audit Trail</a>.</p>

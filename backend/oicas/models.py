@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, timezone
 
-from sqlalchemy import (JSON, Boolean, Date, DateTime, Float, ForeignKey, Index, Integer, String, Text,
+from sqlalchemy import (JSON, Boolean, Date, DateTime, Float, ForeignKey, Index, Integer, LargeBinary, String, Text,
                         UniqueConstraint)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -330,6 +330,55 @@ class AnnualInventoryEntry(Base):
     updated_by_id: Mapped[int | None] = mapped_column(ForeignKey("app_user.id"))
     created_by: Mapped[User | None] = relationship(foreign_keys=[created_by_id])
     updated_by: Mapped[User | None] = relationship(foreign_keys=[updated_by_id])
+
+
+class AmcImport(Base):
+    """One uploaded copy of the AMC / ABC Analysis workbook (AMC Import): the original file plus who uploaded it.
+
+    ``uploaded_by`` is the name typed on the form; ``uploaded_by_user_id`` is the logged-in account that did it.
+    """
+    __tablename__ = "amc_import"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    filename: Mapped[str] = mapped_column(String(255))
+    uploaded_by: Mapped[str] = mapped_column(String(200))
+    uploaded_by_user_id: Mapped[int | None] = mapped_column(ForeignKey("app_user.id"))
+    uploaded_at: Mapped[datetime] = mapped_column(TS, default=utcnow)
+    size_bytes: Mapped[int] = mapped_column(Integer, default=0)
+    sha256: Mapped[str] = mapped_column(String(64))
+    sheet_count: Mapped[int] = mapped_column(Integer, default=0)
+    row_count: Mapped[int] = mapped_column(Integer, default=0)
+    active_sheet: Mapped[int] = mapped_column(Integer, default=0)  # position of the sheet Excel opens on
+    content: Mapped[bytes] = mapped_column(LargeBinary, deferred=True)  # the file exactly as uploaded
+    uploaded_by_user: Mapped[User | None] = relationship()
+    sheets: Mapped[list["AmcImportSheet"]] = relationship(back_populates="amc_import", cascade="all, delete-orphan",
+                                                          order_by="AmcImportSheet.position")
+
+
+class AmcImportSheet(Base):
+    """Display copy of one visible sheet: cell texts as Excel shows them, the title row and merged ranges."""
+    __tablename__ = "amc_import_sheet"
+    __table_args__ = (UniqueConstraint("import_id", "position"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    import_id: Mapped[int] = mapped_column(ForeignKey("amc_import.id", ondelete="CASCADE"), index=True)
+    position: Mapped[int] = mapped_column(Integer)
+    name: Mapped[str] = mapped_column(String(120))
+    n_rows: Mapped[int] = mapped_column(Integer, default=0)
+    n_cols: Mapped[int] = mapped_column(Integer, default=0)
+    header_row: Mapped[int] = mapped_column(Integer, default=0)  # 1-based; 0 = none
+    tab_color: Mapped[str | None] = mapped_column(String(7))  # Excel sheet-tab colour "#RRGGBB"; NULL = none
+    layout: Mapped[dict | None] = mapped_column(JSON)  # widths, heights, hidden rows/cols, frozen panes, gridlines, filter
+    style_grid: Mapped[list | None] = mapped_column(JSON, deferred=True)  # per cell: index into style_table
+    style_table: Mapped[list | None] = mapped_column(JSON)  # [{"c": css, "b": [left, right, top, bottom]}]
+
+    @property
+    def tab_text(self) -> str:
+        """Readable text colour on the tab colour (dark on light tabs, white on dark ones)."""
+        c = self.tab_color or "#FFFFFF"
+        r, g, b = (int(c[i:i + 2], 16) for i in (1, 3, 5))
+        return "#1d2330" if (0.299 * r + 0.587 * g + 0.114 * b) > 150 else "#ffffff"
+    rows: Mapped[list] = mapped_column(JSON, deferred=True)  # list of rows, each a list of display strings
+    merges: Mapped[list] = mapped_column(JSON, default=list)  # [[r1, c1, r2, c2], ...] 1-based
+    amc_import: Mapped[AmcImport] = relationship(back_populates="sheets")
 
 
 class Reconciliation(Base):

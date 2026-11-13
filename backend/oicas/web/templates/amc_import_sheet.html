@@ -1,0 +1,61 @@
+{%- macro cells(row_cells, head=false) -%}
+  {%- for c in row_cells -%}
+    <td class="{{ c.cls }}"{% if c.rs %} rowspan="{{ c.rs }}"{% endif %}{% if c.cs %} colspan="{{ c.cs }}"{% endif %}{% if c.left is not none %} style="left:{{ c.left }}px"{% endif %}>{{ c.t }}</td>
+  {%- endfor -%}
+{%- endmacro -%}
+<style>
+.amc-xl { zoom: calc(var(--amc-z, 1) / var(--ui-zoom, .75)); border-collapse: separate; border-spacing: 0; table-layout: fixed; background: #fff;
+  font: 11pt Calibri, Carlito, 'Segoe UI', Arial, sans-serif; color: #000; margin: 0; width: auto; }
+.amc-xl tr { height: var(--rh, 20px); }
+.amc-xl td { padding: 0 3px; overflow: hidden; white-space: nowrap; background: #fff; line-height: 1.2; text-overflow: clip; border: 0;
+  font-variant-numeric: tabular-nums; vertical-align: bottom; }
+.amc-xl.gl td { border-right: 1px solid #d9d9d9; border-bottom: 1px solid #d9d9d9; }
+.amc-xl th { background: #f1f1f1; color: #444; font: 600 9pt Calibri, Carlito, 'Segoe UI', Arial, sans-serif; text-align: center;
+  border: 0; border-right: 1px solid #c8c8c8; border-bottom: 1px solid #c8c8c8; padding: 0 3px; white-space: nowrap; overflow: hidden; }
+.amc-xl thead { position: sticky; top: 0; z-index: 3; }
+.amc-xl .amc-letters th { height: 20px; }
+.amc-xl .amc-rn { position: sticky; left: 0; z-index: 2; font-weight: 400; }
+.amc-xl thead .amc-rn { z-index: 4; }
+.amc-xl .amc-corner { background: #e8e8e8; }
+.amc-xl tbody tr:hover .amc-rn { background: #d9ead3; color: #107c41; }
+.amc-xl td.fz, .amc-xl th.fz { position: sticky; z-index: 1; }
+.amc-xl thead td.fz, .amc-xl thead th.fz { z-index: 4; }
+.amc-xl td.fzl, .amc-xl th.fzl { box-shadow: 1px 0 0 #7f7f7f; }
+.amc-xl td.fzb { box-shadow: 0 1px 0 #7f7f7f; }
+.amc-xl td.fzl.fzb { box-shadow: 1px 0 0 #7f7f7f, 0 1px 0 #7f7f7f; }
+.amc-xl td.af { position: relative; padding-right: 18px; }
+.amc-xl td.af.fz { position: sticky; }
+.amc-xl td.af::after { content: ""; position: absolute; right: 1px; bottom: 1px; width: 15px; height: 15px; box-sizing: border-box;
+  border: 1px solid #a6a6a6; background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M1 3l4 4 4-4z' fill='%23333'/%3E%3C/svg%3E") center / 9px no-repeat; }
+.amc-xl td.af.on::after { background-color: #e5f1fb; border-color: #0a66c2; }
+.amc-xl .amc-empty { text-align: center; color: #8a91a0; padding: 40px; font: 13px Inter, system-ui, sans-serif; }
+</style>
+<style>{{ pg.css|safe }}</style>
+<div class="amc-scroll">
+<table class="amc-xl{{ ' gl' if pg.grid }}" style="width:{{ pg.width }}px;--rh:{{ pg.defrow }}px">
+  <colgroup><col style="width:{{ pg.rn }}px">{% for w in pg.cols %}<col style="width:{{ w }}px">{% endfor %}</colgroup>
+  <thead>
+    <tr class="amc-letters"><th class="amc-rn amc-corner"></th>{% for l in pg.letters %}<th{% if l.fz %} class="fz{{ ' fzl' if l.last }}" style="left:{{ l.left }}px"{% endif %}>{{ l.L }}</th>{% endfor %}</tr>
+    {% for n, rc, h in pg.head %}<tr{% if h %} style="height:{{ h }}px"{% endif %}><th class="amc-rn">{{ n }}</th>{{ cells(rc, true) }}</tr>{% endfor %}
+  </thead>
+  <tbody>
+    {% for n, rc, h in pg.rows %}<tr{% if h %} style="height:{{ h }}px"{% endif %}><th class="amc-rn">{{ n }}</th>{{ cells(rc) }}</tr>
+    {% else %}<tr><td class="amc-empty" colspan="{{ pg.n_cols + 1 }}">{% if pg.q %}<i class="bi bi-search"></i> No rows match “{{ pg.q }}”.{% else %}<i class="bi bi-inbox"></i> This sheet has no rows below its title rows.{% endif %}</td></tr>{% endfor %}
+  </tbody>
+</table>
+</div>
+<div class="amc-foot">
+  <span><b>{{ s.name }}</b> · {% if pg.count %}rows {{ '{:,}'.format(pg.start) }}–{{ '{:,}'.format(pg.end) }} of {{ '{:,}'.format(pg.count) }}{% if pg.q %} matching “{{ pg.q }}”{% endif %}{% else %}0 rows{% endif %} · {{ pg.n_cols }} columns
+    {% if pg.hidden_n %}· <span class="amc-hidden-note" title="Rows hidden in Excel (for example by a filter)"><i class="bi bi-funnel-fill"></i> {{ '{:,}'.format(pg.hidden_n) }} rows {{ 'shown' if pg.show_hidden else 'hidden by the filter' }}</span>
+      <button type="button" class="btn btn-link btn-sm p-0 align-baseline" data-amc-hidden="{{ 0 if pg.show_hidden else 1 }}">{{ 'Hide them again' if pg.show_hidden else 'Show them' }}</button>{% endif %}</span>
+  {% if pg.pages > 1 %}
+  <nav aria-label="Pages"><ul class="pagination pagination-sm mb-0">
+    <li class="page-item {% if pg.page == 1 %}disabled{% endif %}"><button type="button" class="page-link" data-amc-page="{{ pg.page - 1 }}" aria-label="Previous">‹</button></li>
+    {% for p in range(1, pg.pages + 1) if p == 1 or p == pg.pages or (p - pg.page)|abs <= 2 %}
+      {% if loop.previtem is defined and p - loop.previtem > 1 %}<li class="page-item disabled"><span class="page-link">…</span></li>{% endif %}
+      <li class="page-item {% if p == pg.page %}active{% endif %}"><button type="button" class="page-link" data-amc-page="{{ p }}">{{ p }}</button></li>
+    {% endfor %}
+    <li class="page-item {% if pg.page == pg.pages %}disabled{% endif %}"><button type="button" class="page-link" data-amc-page="{{ pg.page + 1 }}" aria-label="Next">›</button></li>
+  </ul></nav>
+  {% endif %}
+</div>

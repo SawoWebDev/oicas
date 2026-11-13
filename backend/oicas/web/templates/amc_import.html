@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block content %}
+{% if can('import.run') %}
+<div class="card-soft mb-3">
+  <div class="card-head"><h2><i class="bi bi-file-earmark-arrow-up"></i> Upload the AMC / ABC Analysis workbook</h2></div>
+  <div class="card-body-soft">
+    <form method="post" action="/amc-import/upload" enctype="multipart/form-data" class="row g-2 align-items-end" id="amc-upload-form">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <div class="col-lg-6"><label class="form-label small" for="amc-file">Excel file</label>
+        <input class="form-control form-control-sm" type="file" id="amc-file" name="file" accept=".xlsx,.xlsm" required></div>
+      <div class="col-lg-3 col-md-6"><label class="form-label small" for="amc-by">Uploaded by</label>
+        <input class="form-control form-control-sm" id="amc-by" name="uploaded_by" value="{{ user.name or user.login }}" maxlength="200" required></div>
+      <div class="col-lg-3 col-md-6"><button class="btn btn-primary btn-sm w-100" id="amc-upload-btn"><i class="bi bi-upload"></i> Upload</button></div>
+      <div class="col-12"><span class="small-note">e.g. <b>03_AMC Sep-Jul ABC Analysis.xlsx</b> · max {{ max_mb }} MB · every visible sheet is kept for viewing; the original file can be downloaded again at any time.</span></div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+<div class="card-soft">
+  <div class="card-head"><h2>Upload sessions <span class="muted fw-normal">({{ imports|length }})</span></h2></div>
+  <div class="table-responsive"><table class="table table-soft">
+    <thead><tr><th>Session</th><th>Date uploaded</th><th>Uploaded by</th><th class="text-end">Actions</th></tr></thead>
+    <tbody>{% for imp in imports %}
+      <tr>
+        <td><span class="fw-semibold">#{{ imp.id }}</span>
+          <div class="small-note text-truncate amc-fname" title="{{ imp.filename }}"><i class="bi bi-file-earmark-excel"></i> {{ imp.filename }} · {{ imp.sheet_count }} sheets · {{ '%.1f'|format(imp.size_bytes / 1048576) }} MB</div></td>
+        <td>{{ fmt(imp.uploaded_at, 'datetime') }}</td>
+        <td>{{ imp.uploaded_by }}{% if imp.uploaded_by_user and imp.uploaded_by_user.login != imp.uploaded_by and (imp.uploaded_by_user.name or '') != imp.uploaded_by %}
+          <div class="small-note">account: {{ imp.uploaded_by_user.name or imp.uploaded_by_user.login }}</div>{% endif %}</td>
+        <td class="text-end text-nowrap">
+          <button type="button" class="btn btn-outline-primary btn-xs" data-amc-open="{{ imp.id }}"><i class="bi bi-table"></i> Details</button>
+          <a class="btn btn-soft btn-xs" href="/amc-import/{{ imp.id }}/download" title="Download the original Excel file"><i class="bi bi-download"></i> Export</a>
+          {% if can('import.run') %}
+          <form method="post" action="/amc-import/{{ imp.id }}/delete" class="d-inline">
+            <input type="hidden" name="csrf" value="{{ csrf }}">
+            <button class="btn btn-outline-danger btn-xs" data-confirm="Delete session #{{ imp.id }} ({{ imp.filename }})? The uploaded file and its sheets are removed. This cannot be undone."><i class="bi bi-trash3"></i> Delete</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+    {% else %}<tr><td colspan="4" class="muted text-center py-4"><i class="bi bi-inbox"></i> No uploads yet.</td></tr>{% endfor %}</tbody>
+  </table></div>
+</div>
+
+{# large viewer: filled by amc_import.js from /amc-import/{id}/view and /amc-import/{id}/sheets/{n} #}
+<div class="oi-modal amc-modal" id="amc-modal" hidden>
+  <div class="oi-modal-backdrop" data-amc-close></div>
+  <div class="oi-modal-box amc-modal-box" role="dialog" aria-modal="true" aria-label="AMC import details" tabindex="-1" id="amc-modal-box">
+    <div class="amc-loading"><span class="spinner-border spinner-border-sm"></span> Loading…</div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}<script src="/static/js/amc_import.js?v={{ static_v }}"></script>{% endblock %}

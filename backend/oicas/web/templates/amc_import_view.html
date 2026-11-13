@@ -1,0 +1,47 @@
+<div class="amc-head">
+  <span class="d-ic tone-green"><i class="bi bi-file-earmark-spreadsheet-fill"></i></span>
+  <div class="overflow-hidden">
+    {% set first = imp.sheets[imp.active_sheet] if imp.active_sheet < imp.sheets|length else imp.sheets[0] %}
+    <div class="oi-modal-title text-truncate" id="amc-title">Session #{{ imp.id }} · {{ imp.filename }}
+      <span class="amc-sheet-chip" title="Sheet you are viewing"><i class="bi bi-table"></i> <span id="amc-sheet-name">{{ first.name }}</span></span></div>
+    <div class="oi-modal-sub">Uploaded by <b>{{ imp.uploaded_by }}</b> · {{ fmt(imp.uploaded_at, 'datetime') }} · {{ imp.sheet_count }} sheets · {{ '{:,}'.format(imp.row_count) }} rows</div>
+  </div>
+  <div class="amc-tools">
+    <div class="amc-search"><i class="bi bi-search"></i>
+      <input class="form-control form-control-sm" type="search" id="amc-q" placeholder="Search this sheet…" autocomplete="off" aria-label="Search this sheet"></div>
+    <select class="form-select form-select-sm amc-zoom" id="amc-zoom" aria-label="Zoom" title="Zoom (100% = Excel's own size)">
+      {% for z in (70, 80, 90, 100, 110, 125, 150) %}<option value="{{ z }}"{% if z == 100 %} selected{% endif %}>{{ z }}%</option>{% endfor %}
+    </select>
+    <a class="btn btn-soft btn-sm" href="/amc-import/{{ imp.id }}/download"><i class="bi bi-download"></i> Export Excel</a>
+    <button type="button" class="btn-close" data-amc-close aria-label="Close"></button>
+  </div>
+</div>
+{# sheet bar (top, above the grid): scroll arrows, the all-sheets list with search, then the coloured sheet tabs as in Excel #}
+<div class="amc-tabbar">
+  <div class="amc-tabnav">
+    <button type="button" class="amc-navbtn" data-amc-tabscroll="-1" title="Scroll tabs left" aria-label="Scroll tabs left"><i class="bi bi-chevron-left"></i></button>
+    <button type="button" class="amc-navbtn" data-amc-tabscroll="1" title="Scroll tabs right" aria-label="Scroll tabs right"><i class="bi bi-chevron-right"></i></button>
+    <div class="amc-menu-wrap">
+      <button type="button" class="amc-navbtn" id="amc-menu-btn" data-amc-menu title="All sheets" aria-label="All sheets" aria-haspopup="true" aria-expanded="false"><i class="bi bi-list-ul"></i></button>
+      <div class="amc-sheetmenu" id="amc-sheetmenu" hidden>
+        <div class="amc-sheetmenu-head">Active Document</div>
+        <input class="form-control form-control-sm" type="search" id="amc-sheet-filter" placeholder="Enter text" autocomplete="off" aria-label="Find a sheet">
+        <div class="amc-sheetmenu-list" role="listbox" aria-label="Sheets">
+          {% for s in imp.sheets %}
+          <button type="button" role="option" class="amc-sheetmenu-item{% if s.position == first.position %} active{% endif %}" data-amc-sheet="{{ s.position }}" data-name="{{ s.name|lower }}"
+                  aria-selected="{{ 'true' if s.position == first.position else 'false' }}"><span class="amc-swatch{% if not s.tab_color %} none{% endif %}"{% if s.tab_color %} style="background:{{ s.tab_color }}"{% endif %}></span>{{ s.name }}</button>
+          {% endfor %}
+          <div class="amc-sheetmenu-none" hidden>No sheet matches.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="amc-tabs" id="amc-tabs" role="tablist" aria-label="Sheets">
+    {% for s in imp.sheets %}
+      <button type="button" role="tab" class="amc-tab{% if s.tab_color %} colored{% endif %}{% if s.position == first.position %} active{% endif %}" data-amc-sheet="{{ s.position }}" aria-selected="{{ 'true' if s.position == first.position else 'false' }}"
+              {% if s.tab_color %}style="--tab-bg: {{ s.tab_color }}; --tab-fg: {{ s.tab_text }}"{% endif %}
+              title="{{ s.name }} · {{ '{:,}'.format(s.n_rows) }} rows × {{ s.n_cols }} columns">{{ s.name }}</button>
+    {% endfor %}
+  </div>
+</div>
+<div class="amc-body" id="amc-grid" data-iid="{{ imp.id }}" data-sheet="{{ first.position }}"><div class="amc-loading"><span class="spinner-border spinner-border-sm"></span> Loading…</div></div>

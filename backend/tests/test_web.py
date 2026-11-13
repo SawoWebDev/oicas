@@ -451,3 +451,172 @@ def test_annual_reconcile_groups_same_codes():
     assert set(rec) == {1, 3}  # RM-2 was logged once: nothing to reconcile
     assert rec[1] == {"n": 1, "count": 2, "total": 15.0, "first": True}
     assert rec[3]["n"] == 2 and rec[3]["first"] is False
+
+
+def _amc_workbook() -> bytes:
+    import io
+
+    from openpyxl import Workbook
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "CONSOLIDATED"
+    ws.append(["#", "Code", "Description", "Sep", "demand as a % of total demand", "ACTION", "CLASSIFICATION"])
+    ws.append([1, "8RM04-341-1", "Acid - Citric", 745.7, 0.00024064, "CLOSE CONTROL", "Fast Moving"])
+    ws.append([2, "8RM05-905", "Acrylic Sheet <b>", 1.67068, 0.5, "REGULAR REVIEW", "Medium Moving"])
+    ws["D2"].number_format = "0"
+    ws["E2"].number_format = ws["E3"].number_format = "0.00%"
+    ws.auto_filter.ref = "A1:G3"
+    ws.sheet_properties.tabColor = "00B050"
+    cls = wb.create_sheet("CLASS")
+    cls["B4"], cls["C4"], cls["D4"] = "DECLARED INVENTORY TYPE", "ACTION", "CLASSIFICATION"
+    cls["B5"], cls["C5"], cls["C6"], cls["C7"] = "MTS", "CLOSE CONTROL", "REGULAR REVIEW", "INFREQUENT REVIEW"
+    cls.merge_cells("B5:B7")
+    raw = wb.create_sheet("Sheet1")
+    raw.append(["Components/Created on", "Components/Product/Reference"])
+    raw.sheet_state = "hidden"
+    wb.active = 1  # saved with CLASS as the open tab: the viewer must start there, like Excel
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+def test_amc_import_upload_view_export_delete(client):
+    from oicas.models import AmcImport
+    from oicas.db import session_factory
+    data = _amc_workbook()
+    login(client, "counter")
+    assert client.get("/amc-import").status_code == 200  # everyone can view
+    token = csrf(client, "/amc-import")
+    r = client.post("/amc-import/upload", data={"csrf": token, "uploaded_by": "X"},
+                    files={"file": ("amc.xlsx", data)}, follow_redirects=False)
+    assert r.status_code == 403  # upload needs import.run (manager)
+
+    login(client, "manager")
+    token = csrf(client, "/amc-import")
+    r = client.post("/amc-import/upload", data={"csrf": token, "uploaded_by": "Jovielyn"},
+                    files={"file": ("03_AMC Sep-Jul  ABC Analysis.xlsx", data)}, follow_redirects=False)
+    assert r.status_code == 303 and "/amc-import?open=" in r.headers["location"]
+    iid = int(r.headers["location"].rsplit("=", 1)[1])
+    page = client.get("/amc-import").text
+    assert f'data-amc-open="{iid}"' in page and "Jovielyn" in page and "AMC Import" in page
+
+    view = client.get(f"/amc-import/{iid}/view").text
+    assert "CONSOLIDATED" in view and "CLASS" in view and "Sheet1" not in view  # hidden sheet not shown
+    assert 'data-sheet="1"' in view and 'id="amc-sheet-name">CLASS<' in view
+    assert re.search(r'class="amc-tab active" data-amc-sheet="1"', view)  # CLASS has no tab colour
+    assert re.search(r'class="amc-tab colored" data-amc-sheet="0"[^>]*--tab-bg: #00B050', view)  # green tab
+    assert view.index('class="amc-tabbar"') < view.index('id="amc-grid"')  # sheet bar sits above the grid
+    grid = client.get(f"/amc-import/{iid}/sheets/0").text
+    assert "746" in grid and "0.02%" in grid and "50.00%" in grid  # Excel number formats
+    assert "pill" not in grid  # plain text like Excel, not badges
+    assert "Acrylic Sheet &lt;b&gt;" in grid  # escaped
+    found = client.get(f"/amc-import/{iid}/sheets/0", params={"q": "acrylic"}).text
+    assert "8RM05-905" in found and "8RM04-341-1" not in found
+    cls = client.get(f"/amc-import/{iid}/sheets/1").text
+    assert 'rowspan="3"' in cls  # merged B5:B7
+    assert client.get(f"/amc-import/{iid}/sheets/9").status_code == 404
+
+    dl = client.get(f"/amc-import/{iid}/download")
+    assert dl.status_code == 200 and dl.content == data and "attachment" in dl.headers["content-disposition"]
+
+    token = csrf(client, "/amc-import")
+    r = client.post(f"/amc-import/{iid}/delete", data={"csrf": token}, follow_redirects=False)
+    assert r.status_code == 303
+    db = session_factory()()
+    assert db.get(AmcImport, iid) is None
+    db.close()
+
+
+def test_amc_import_rejects_bad_files(client):
+    login(client, "manager")
+    token = csrf(client, "/amc-import")
+    r = client.post("/amc-import/upload", data={"csrf": token, "uploaded_by": "Me"},
+                    files={"file": ("notes.txt", b"hello")}, follow_redirects=False)
+    assert r.status_code == 303 and r.headers["location"] == "/amc-import"
+    r = client.post("/amc-import/upload", data={"csrf": token, "uploaded_by": "Me"},
+                    files={"file": ("broken.xlsx", b"not a zip")}, follow_redirects=False)
+    assert r.status_code == 303 and r.headers["location"] == "/amc-import"
+    r = client.post("/amc-import/upload", data={"csrf": token, "uploaded_by": "  "},
+                    files={"file": ("amc.xlsx", _amc_workbook())}, follow_redirects=False)
+    assert r.status_code == 303 and r.headers["location"] == "/amc-import"
+
+
+def test_amc_excel_layout_hidden_rows_cols_widths_cf():
+    import io
+
+    from openpyxl import Workbook
+    from openpyxl.formatting.rule import CellIsRule
+    from openpyxl.styles import Border, Font, PatternFill, Side
+    from oicas.services import amc_import
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "RM"
+    ws.append(["#", "Code", "Secret", "Class"])
+    for i, (code, cl) in enumerate([("A-1", "A"), ("B-2", "B"), ("C-3", "C"), ("D-4", "A")], start=1):
+        ws.append([i, code, "hidden col", cl])
+    ws.column_dimensions["B"].width = 30
+    ws.column_dimensions["C"].hidden = True
+    ws.row_dimensions[3].hidden = True  # a filtered-out row
+    ws.row_dimensions[2].height = 40
+    ws.freeze_panes = "C2"
+    ws.sheet_view.showGridLines = False
+    ws["A1"].fill = PatternFill("solid", fgColor="FBD4B4")
+    ws["A1"].font = Font(name="Calibri", size=10, bold=True)
+    ws["A1"].border = Border(bottom=Side(style="thin", color="000000"))
+    ws.conditional_formatting.add("D2:D5", CellIsRule(operator="equal", formula=['"A"'],
+                                                      fill=PatternFill(bgColor="00B050", fill_type="solid")))
+    ws.auto_filter.ref = "A1:D5"
+    buf = io.BytesIO()
+    wb.save(buf)
+    sh = amc_import.parse_workbook(buf.getvalue())[0]
+    lay = sh["layout"]
+    assert lay["colpx"][1] == 210 and lay["colpx"][2] == 0  # B = 30 wide, C hidden
+    assert lay["hrows"] == [3] and lay["rowpx"]["2"] == 53 and lay["fr"] == 1 and lay["fc"] == 2 and lay["grid"] is False
+    assert lay["filter"] == [1, 1, 5, 4]
+
+    class S:  # the parts of AmcImportSheet that page() reads
+        rows, merges, n_cols = sh["rows"], sh["merges"], sh["n_cols"]
+        layout, style_grid, style_table = lay, sh["style_grid"], sh["style_table"]
+    pg = amc_import.page(S)
+    assert [n for n, *_ in pg["rows"]] == [2, 4, 5] and pg["hidden_n"] == 1  # row 3 hidden like Excel
+    assert [l["L"] for l in pg["letters"]] == ["A", "B", "D"]  # column C hidden
+    assert "background-color:#00B050" in pg["css"] and "background-color:#FBD4B4" in pg["css"]
+    assert "border-bottom:1px solid #000000" in pg["css"]
+    assert [n for n, *_ in amc_import.page(S, show_hidden=True)["rows"]] == [2, 3, 4, 5]
+    # the "A" cells (rows 2 and 5) get the green fill, the others don't
+    greens = [i for i, t in enumerate(sh["style_table"]) if "#00B050" in t["c"]]
+    assert greens and sh["style_grid"][1][3] in greens and sh["style_grid"][4][3] in greens
+    assert sh["style_grid"][2][3] not in greens
+
+
+def test_amc_tab_colors_real_workbook():
+    from pathlib import Path
+
+    from oicas.services.amc_import import active_sheet_name, tab_colors
+    f = Path(__file__).resolve().parents[2] / "03_AMC Sep-Jul  ABC Analysis.xlsx"
+    if not f.exists():
+        pytest.skip("reference workbook not available")
+    data = f.read_bytes()
+    c = tab_colors(data)
+    assert c["CONSOLIDATED"] == "#00B050" and c["Stone ABC Analysis"] == "#FFFF00" and c["List excluded"] == "#FFC000"
+    assert "CLASS" not in c and "Demand" not in c
+    assert active_sheet_name(data) == "List excluded"
+    from oicas.services import amc_import
+    sheets = {x["name"]: x for x in amc_import.parse_workbook(data)}
+    rm = sheets["RM"]
+    assert len(rm["layout"]["hrows"]) == 905 and rm["layout"]["fr"] == 2 and rm["layout"]["fc"] == 2
+    assert rm["layout"]["colpx"][2] == 588 and rm["layout"]["grid"] is False  # Description = 84 wide, no gridlines
+    assert sheets["Demand"]["layout"]["grid"] is True
+    assert not any(0 in x["layout"]["colpx"] for x in sheets.values())  # no hidden columns in this workbook
+
+
+def test_amc_format_value():
+    from oicas.services.amc_import import format_value as f
+    assert f(745.7, "0") == "746"
+    assert f(0.00024064, "0.00%") == "0.02%"
+    assert f(1, "0.00%") == "100.00%"
+    assert f(1234567.891, "#,##0.00") == "1,234,567.89"
+    assert f(124.28333333333335, "General") == "124.2833333"
+    assert f(2025, "General") == "2025"
+    assert f(-0.2, "0") == "0"
+    assert f(None) == "" and f("AB") == "AB"

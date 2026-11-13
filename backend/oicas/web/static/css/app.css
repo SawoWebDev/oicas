@@ -322,3 +322,71 @@ body.modal-open-oi { overflow: hidden; }
   display: inline-flex; align-items: center; justify-content: center; padding: 0; }
 .recon-badge.is-first { background: #fff4e0; color: #9a5b00; }
 .recon-badge.is-dup { background: #fde8e8; color: #b42318; }
+
+/* ---------- AMC Import: large workbook viewer (Excel-like grid) ---------- */
+.amc-fname { max-width: 420px; }
+.amc-modal { width: calc(100vw / var(--ui-zoom)); height: calc(100vh / var(--ui-zoom)); padding: 20px; }
+.amc-modal-box { width: 100%; max-width: none; height: 100%; display: flex; flex-direction: column; overflow: hidden; }
+.amc-head { display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--border); flex: none; }
+.amc-head .oi-modal-title { font-size: 16px; }
+.amc-tools { display: flex; align-items: center; gap: 10px; margin-left: auto; flex: none; }
+.amc-search { position: relative; width: 260px; }
+.amc-search i { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 12px; }
+.amc-search input { padding-left: 30px; border-radius: 8px; }
+.amc-search input:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft); }
+.amc-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; background: #fff; transition: opacity .12s; }
+.amc-body.is-loading { opacity: .45; pointer-events: none; }
+.amc-loading, .amc-error { padding: 40px; text-align: center; color: var(--muted); font-size: 13px; }
+.amc-error { color: var(--brand); }
+.amc-scroll { flex: 1 1 auto; min-height: 0; overflow: auto; background: #fff; }
+.amc-foot { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  padding: 8px 14px; border-top: 1px solid var(--border); font-size: 12px; color: #4a5162; background: #fafbfc; }
+.amc-foot .page-link { cursor: pointer; }
+
+/* the sheet grid itself is styled inside templates/amc_import_sheet.html (class amc-xl), so it never mixes with a cached stylesheet */
+.amc-zoom { width: 92px; padding-right: 26px; }
+.amc-hidden-note { color: #0a66c2; font-weight: 600; }
+
+/* sheet bar on top of the grid: compact, coloured tabs like Excel's */
+.amc-tabbar { flex: none; display: flex; align-items: stretch; gap: 6px; padding: 6px 12px 0; background: #f3f4f6;
+  border-bottom: 2px solid #1f9d55; }
+.amc-tabnav { flex: none; display: flex; align-items: center; gap: 2px; padding-bottom: 6px; }
+.amc-navbtn { width: 28px; height: 28px; border: 1px solid transparent; border-radius: 7px; background: transparent; color: #4a5162;
+  display: inline-flex; align-items: center; justify-content: center; font-size: 13px; }
+.amc-navbtn:hover, .amc-navbtn[aria-expanded="true"] { background: #fff; border-color: #d4d8de; color: var(--text); }
+.amc-navbtn:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }
+.amc-tabs { flex: 1 1 auto; min-width: 0; display: flex; align-items: flex-end; gap: 3px; overflow-x: auto; scrollbar-width: none; }
+.amc-tabs::-webkit-scrollbar { display: none; }
+.amc-tab { --tab-bg: #e4e6ea; --tab-fg: #1d2330; flex: none; position: relative; border: 1px solid rgba(0,0,0,.08); border-bottom: 0;
+  background: var(--tab-bg); color: var(--tab-fg); font-size: 12.5px; font-weight: 600; padding: 6px 14px 7px; border-radius: 8px 8px 0 0;
+  white-space: nowrap; cursor: pointer; line-height: 1.2; transition: filter .12s, transform .12s; }
+.amc-tab:hover { filter: brightness(.95); }
+/* the open sheet: white with green text, topped with a bar in the sheet colour */
+.amc-tab.active { background: #fff; color: #107c41; font-weight: 700; border-color: #1f9d55; border-width: 2px 2px 0;
+  padding-bottom: 7px; z-index: 1; filter: none; }
+.amc-tab.active::before { content: ""; position: absolute; left: 6px; right: 6px; top: 3px; height: 3px; border-radius: 2px;
+  background: var(--tab-bg); }
+.amc-tab:not(.colored).active::before { background: #1f9d55; }
+.amc-tab:focus-visible { outline: 2px solid var(--brand); outline-offset: -3px; }
+.amc-menu-wrap { position: relative; }
+.amc-sheetmenu { position: absolute; z-index: 20; top: calc(100% + 6px); left: 0; width: 280px; background: #fff; border: 1px solid #d4d8de;
+  border-radius: 10px; box-shadow: 0 14px 36px rgba(15, 23, 42, .22); padding: 10px; animation: oi-pop .14s ease-out; }
+.amc-sheetmenu-head { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin: 0 2px 6px; }
+.amc-sheetmenu input:focus { border-color: #1f9d55; box-shadow: 0 0 0 3px #e8f7ee; }
+.amc-sheetmenu-list { max-height: 340px; overflow-y: auto; margin-top: 8px; display: flex; flex-direction: column; gap: 1px; }
+.amc-sheetmenu-item { display: flex; align-items: center; gap: 9px; width: 100%; text-align: left; border: 0; background: transparent;
+  padding: 7px 8px; border-radius: 6px; font-size: 13px; color: var(--text); }
+.amc-sheetmenu-item:hover { background: #f3f4f6; }
+.amc-sheetmenu-item.active { background: #e8f7ee; color: #107c41; font-weight: 700; }
+.amc-swatch { flex: none; width: 12px; height: 12px; border-radius: 3px; border: 1px solid rgba(0,0,0,.18); }
+.amc-swatch.none { background: #fff; }
+.amc-sheetmenu-none { padding: 10px 8px; color: var(--muted); font-size: 12.5px; }
+@media (max-width: 767.98px) {
+  .amc-modal { padding: 6px; }
+  .amc-head { flex-wrap: wrap; }
+  .amc-tools { width: 100%; margin-left: 0; }
+  .amc-search { flex: 1; width: auto; }
+    .amc-grid .amc-rn { position: sticky; }
+}
+.amc-sheet-chip { display: inline-flex; align-items: center; gap: 5px; margin-left: 8px; padding: 2px 10px; border-radius: 999px; vertical-align: 2px;
+  background: #e8f7ee; color: #1f7a45; border: 1px solid #bfe6cf; font-size: 12px; font-weight: 700; }

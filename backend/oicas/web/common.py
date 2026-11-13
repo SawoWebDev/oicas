@@ -26,7 +26,7 @@ def _static_version() -> str:
     """Fingerprint of our own CSS/JS: appended as ?v=… so browsers fetch new files after an update."""
     import hashlib
     h = hashlib.sha256()
-    for rel in ("css/gas-base.css", "css/app.css", "js/app.js", "js/annual.js"):
+    for rel in ("css/gas-base.css", "css/app.css", "js/app.js", "js/annual.js", "js/amc_import.js"):
         p = BASE / "static" / rel
         if p.exists():
             h.update(p.read_bytes())
@@ -49,6 +49,7 @@ NAV = [
         ("imports", "/imports", "bi-upload", "Data Import", "import.run"),
     ]),
     ("Analysis", [
+        ("amc_import", "/amc-import", "bi-file-earmark-spreadsheet", "AMC Import", "view"),
         ("amc", "/analysis/amc", "bi-graph-up", "AMC Analysis", "view"),
         ("abc", "/analysis/abc", "bi-bar-chart-steps", "ABC Analysis", "view"),
         ("movement", "/analysis/movement", "bi-speedometer2", "Movement Classification", "view"),
