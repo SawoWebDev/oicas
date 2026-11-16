@@ -1,6 +1,6 @@
 {%- macro cells(row_cells, head=false) -%}
   {%- for c in row_cells -%}
-    <td class="{{ c.cls }}"{% if c.rs %} rowspan="{{ c.rs }}"{% endif %}{% if c.cs %} colspan="{{ c.cs }}"{% endif %}{% if c.left is not none %} style="left:{{ c.left }}px"{% endif %}>{{ c.t }}</td>
+    <td class="{{ c.cls }}"{% if c.rs %} rowspan="{{ c.rs }}"{% endif %}{% if c.cs %} colspan="{{ c.cs }}"{% endif %}{% if c.left is not none %} style="left:{{ c.left }}px"{% endif %}>{% if c.sp %}<span class="sp" style="max-width:{{ c.sp }}px">{{ c.t }}</span>{% else %}{{ c.t }}{% endif %}</td>
   {%- endfor -%}
 {%- endmacro -%}
 <style>
@@ -23,7 +23,12 @@
 .amc-xl td.fzl, .amc-xl th.fzl { box-shadow: 1px 0 0 #7f7f7f; }
 .amc-xl td.fzb { box-shadow: 0 1px 0 #7f7f7f; }
 .amc-xl td.fzl.fzb { box-shadow: 1px 0 0 #7f7f7f, 0 1px 0 #7f7f7f; }
-.amc-xl td.af { position: relative; padding-right: 18px; }
+.amc-xl td.af { position: relative; }  /* the button sits over the text, as in Excel */
+.amc-xl td.ov { overflow: visible; }  /* text running on over the empty cells to its right */
+/* inline-block: painted after every cell's background and gridlines, so the text (and on gridline sheets a white
+   backing as wide as the text) covers the gridlines it runs over, like Excel */
+.amc-xl td.ov .sp { display: inline-block; vertical-align: bottom; overflow: hidden; white-space: nowrap; }
+.amc-xl.gl td.ovw .sp { background: #fff; }
 .amc-xl td.af.fz { position: sticky; }
 .amc-xl td.af::after { content: ""; position: absolute; right: 1px; bottom: 1px; width: 15px; height: 15px; box-sizing: border-box;
   border: 1px solid #a6a6a6; background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M1 3l4 4 4-4z' fill='%23333'/%3E%3C/svg%3E") center / 9px no-repeat; }
@@ -40,7 +45,7 @@
   </thead>
   <tbody>
     {% for n, rc, h in pg.rows %}<tr{% if h %} style="height:{{ h }}px"{% endif %}><th class="amc-rn">{{ n }}</th>{{ cells(rc) }}</tr>
-    {% else %}<tr><td class="amc-empty" colspan="{{ pg.n_cols + 1 }}">{% if pg.q %}<i class="bi bi-search"></i> No rows match “{{ pg.q }}”.{% else %}<i class="bi bi-inbox"></i> This sheet has no rows below its title rows.{% endif %}</td></tr>{% endfor %}
+    {% else %}<tr><td class="amc-empty" colspan="{{ pg.n_cols + pg.tail + 1 }}">{% if pg.q %}<i class="bi bi-search"></i> No rows match “{{ pg.q }}”.{% else %}<i class="bi bi-inbox"></i> This sheet has no rows below its title rows.{% endif %}</td></tr>{% endfor %}
   </tbody>
 </table>
 </div>

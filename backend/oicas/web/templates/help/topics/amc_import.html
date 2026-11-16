@@ -8,7 +8,7 @@
 <h3>The session list</h3>
 <p>Each row shows the session number, the date and time of the upload, who uploaded it and the actions:</p>
 <ul>
-  <li><span class="ui">Details</span> opens the workbook in a large window. The sheet tabs along the bottom work like Excel's. Column letters, row numbers and the title row stay in view while you scroll, and on the family sheets and CONSOLIDATED the #, Code and Description columns stay in view too. Use the search box to find a code or description in the current sheet. Long sheets are shown 200 rows per page.</li>
+  <li><span class="ui">Details</span> opens the workbook in a large window. The coloured sheet tabs above the grid work like Excel's, and the ☰ button lists every sheet with a search box. The window opens on the sheet Excel opens on. Column letters, row numbers and the title row stay in view while you scroll, and on the family sheets and CONSOLIDATED the #, Code and Description columns stay in view too. Use the search box to find a code or description in the current sheet. Long sheets are shown 200 rows per page.</li>
   <li><span class="ui">Export</span> (or <span class="ui">Export Excel</span> in the window) downloads the file exactly as it was uploaded, formulas and hidden sheets included.</li>
   <li><span class="ui">Delete</span> removes the session and its file. You are asked to confirm, and it can't be undone.</li>
 </ul>
@@ -16,7 +16,7 @@
 <ul>
   <li>Values are shown as Excel displays them: percentages such as <i>0.02%</i>, whole numbers, and General numbers. They are the values Excel last calculated and saved in the file.</li>
   <li>Only <b>visible</b> sheets are shown. Hidden sheets, such as the raw Odoo demand export and the pivot, stay in the downloaded file.</li>
-  <li>Rows hidden by an Excel filter are shown, so you see the whole sheet.</li>
+  <li>Rows hidden in Excel (for example by a filter) stay hidden, as in Excel. The footer says how many, and <span class="ui">Show them</span> brings them back.</li>
 </ul>
 <h3>Who can do what</h3>
 <p>Everyone can view and export. Uploading and deleting need the <b>manager</b> role or higher. Uploads, downloads and deletions are recorded in the <a href="#help-audit" data-help-topic="audit">Audit Trail</a>.</p>

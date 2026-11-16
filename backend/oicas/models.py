@@ -336,9 +336,12 @@ class AmcImport(Base):
     """One uploaded copy of the AMC / ABC Analysis workbook (AMC Import): the original file plus who uploaded it.
 
     ``uploaded_by`` is the name typed on the form; ``uploaded_by_user_id`` is the logged-in account that did it.
+    ``kind`` says which module owns the upload: ``amc`` (AMC Import) or ``counted`` (Physical Counting, COUNTED LIST).
     """
     __tablename__ = "amc_import"
     id: Mapped[int] = mapped_column(primary_key=True)
+    kind: Mapped[str] = mapped_column(String(20), default="amc", server_default="amc", index=True)
+    seq: Mapped[int | None] = mapped_column(Integer, nullable=True)  # session number within its module (1, 2, …)
     filename: Mapped[str] = mapped_column(String(255))
     uploaded_by: Mapped[str] = mapped_column(String(200))
     uploaded_by_user_id: Mapped[int | None] = mapped_column(ForeignKey("app_user.id"))
@@ -352,6 +355,11 @@ class AmcImport(Base):
     uploaded_by_user: Mapped[User | None] = relationship()
     sheets: Mapped[list["AmcImportSheet"]] = relationship(back_populates="amc_import", cascade="all, delete-orphan",
                                                           order_by="AmcImportSheet.position")
+
+    @property
+    def number(self) -> int:
+        """Session number shown to users: counted per module."""
+        return self.seq or self.id
 
 
 class AmcImportSheet(Base):

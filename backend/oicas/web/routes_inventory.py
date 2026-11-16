@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import io
-import secrets
 from datetime import date
 
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
@@ -175,20 +174,8 @@ def plan_sheet(plan_id: int, assigned_to_id: int | None = None, db: Session = De
 
 
 # ------------------------------------------------------------------ counting
-@router.get("/counting", response_class=HTMLResponse)
-def counting_home(request: Request, status: str = "", db: Session = Depends(get_db),
-                  user: User = Depends(require("count.enter"))):
-    q = select(CountSession)
-    if status:
-        q = q.where(CountSession.status == status)
-    sessions = db.scalars(q.order_by(CountSession.id.desc()).limit(100)).all()
-    n_entries = dict(db.execute(select(CountEntry.session_id, func.count()).where(CountEntry.superseded_by_id.is_(None))
-                                .group_by(CountEntry.session_id)).all())
-    plans = db.scalars(select(CountPlan).where(CountPlan.status == "open").order_by(CountPlan.id.desc())).all()
-    return render(request, db, "counting.html", active="counting", sessions=sessions, n_entries=n_entries, plans=plans,
-                  status=status, token=secrets.token_urlsafe(16))
-
-
+# The Physical Counting page (/counting) lists COUNTED LIST workbook uploads: see routes_amc_import.
+# Count sessions created from a plan or a recount keep their own pages below.
 @router.post("/counting/sessions", dependencies=[Depends(check_csrf)])
 def session_create(count_date: str = Form(...), counted_by: str = Form(...), plan_id: str = Form(""),
                    remarks: str = Form(""), client_token: str = Form(""), recount_of: str = Form(""),
@@ -204,24 +191,26 @@ def session_create(count_date: str = Form(...), counted_by: str = Form(...), pla
     return redirect(f"/counting/sessions/{s.id}", "Count session started.")
 
 
-@router.post("/counting/upload", dependencies=[Depends(check_csrf)])
-async def session_upload(request: Request, file: UploadFile = File(...), count_date: str = Form(""),
-                         counted_by: str = Form(""), plan_id: str = Form(""), client_token: str = Form(""),
-                         db: Session = Depends(get_db), user: User = Depends(require("count.enter"))):
+@router.post("/counting/count-sheet/upload", dependencies=[Depends(check_csrf)])
+async def count_sheet_upload(request: Request, file: UploadFile = File(...), count_date: str = Form(""),
+                             counted_by: str = Form(""), plan_id: str = Form(""), client_token: str = Form(""),
+                             db: Session = Depends(get_db), user: User = Depends(require("count.enter"))):
+    """A filled count sheet from a plan (Count sheet (Excel) on the plan page) becomes a draft count session."""
+    back = f"/planning/plans/{int(plan_id)}" if plan_id.isdigit() else "/planning"
     data = await file.read()
     if len(data) > 10 * 1024 * 1024:
-        return redirect("/counting", "File too large (max 10 MB).", "danger")
+        return redirect(back, "File too large (max 10 MB).", "danger")
     try:
         s, errors = importers.upload_count_sheet(db, user, io.BytesIO(data), file.filename or "upload.xlsx",
                                                  _d(count_date), counted_by or None, int(plan_id) if plan_id else None,
                                                  client_token or None)
     except Exception as e:  # malformed workbook
         db.rollback()
-        return redirect("/counting", f"Could not read the file: {e}", "danger")
+        return redirect(back, f"Could not read the file: {e}", "danger")
     if errors:
         db.rollback()
-        return render(request, db, "counting_upload_errors.html", active="counting", errors=errors,
-                      filename=file.filename)
+        return render(request, db, "counting_upload_errors.html", active="planning", errors=errors,
+                      filename=file.filename, back=back)
     db.commit()
     return redirect(f"/counting/sessions/{s.id}", f"Uploaded {len(s.entries)} entries as a draft. Review and submit.")
 

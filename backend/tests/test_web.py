@@ -7,7 +7,7 @@ from datetime import date
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from oicas.db import Base, make_engine, session_factory, set_engine
 from oicas.models import CountSession, Reconciliation
@@ -146,8 +146,10 @@ def test_count_sheet_roundtrip(client):
     ws.cell(7, 5, 12)  # first item, WH-1
     buf = io.BytesIO()
     wb.save(buf)
-    r = client.post("/counting/upload", data={"csrf": token}, files={"file": ("sheet.xlsx", buf.getvalue())},
-                    follow_redirects=False)
+    token = csrf(client, f"/planning/plans/{pid}")
+    assert "/counting/count-sheet/upload" in client.get(f"/planning/plans/{pid}").text  # upload form on the plan page
+    r = client.post("/counting/count-sheet/upload", data={"csrf": token, "plan_id": pid},
+                    files={"file": ("sheet.xlsx", buf.getvalue())}, follow_redirects=False)
     assert r.status_code == 303 and "/counting/sessions/" in r.headers["location"], re.findall(r"<li>(.*?)</li>", r.text)
 
 
@@ -579,7 +581,10 @@ def test_amc_excel_layout_hidden_rows_cols_widths_cf():
         layout, style_grid, style_table = lay, sh["style_grid"], sh["style_table"]
     pg = amc_import.page(S)
     assert [n for n, *_ in pg["rows"]] == [2, 4, 5] and pg["hidden_n"] == 1  # row 3 hidden like Excel
-    assert [l["L"] for l in pg["letters"]] == ["A", "B", "D"]  # column C hidden
+    letters = [l["L"] for l in pg["letters"]]
+    assert letters[:4] == ["A", "B", "D", "E"]  # column C hidden; empty columns follow D as in Excel
+    assert len(letters) == 3 + pg["tail"] and pg["tail"] >= 3 and pg["width"] >= amc_import.TAIL_MIN_W
+    assert all(len(cells) == 3 + pg["tail"] for _, cells, _ in pg["rows"])  # every row has the empty columns
     assert "background-color:#00B050" in pg["css"] and "background-color:#FBD4B4" in pg["css"]
     assert "border-bottom:1px solid #000000" in pg["css"]
     assert [n for n, *_ in amc_import.page(S, show_hidden=True)["rows"]] == [2, 3, 4, 5]
@@ -620,3 +625,121 @@ def test_amc_format_value():
     assert f(2025, "General") == "2025"
     assert f(-0.2, "0") == "0"
     assert f(None) == "" and f("AB") == "AB"
+
+
+def _counted_workbook() -> bytes:
+    """A small COUNTED LIST: LIST (filtered on one date, frozen A:C), ODOO inv, DATA."""
+    import io
+    from datetime import datetime
+
+    from openpyxl import Workbook
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "LIST"
+    ws.append(["DATE COUNTED", "RM CODE", "Description", "TOTAL COUNT (WH)", "TOTAL COUNT (PROD)", "REMARKS",
+               "COUNTED BY", "COUNT (WH-1)"])
+    ws.append([datetime(2026, 8, 31), "3RM21-041", "Diode - Bridge Rectifier", 473, None, None, "Christine A", 473])
+    ws.append([datetime(2026, 9, 9), "9SH06-WS03", "NR/CML/NRX Wire Set <Assembly>", 305, None, None, "Christine A", 305])
+    for r in (2, 3):
+        ws.cell(r, 1).number_format = r"[$-409]d\-mmm;@"
+        ws.cell(r, 4).number_format = "#,##0.00"
+    ws.row_dimensions[2].hidden = True  # filtered out in Excel
+    ws.auto_filter.ref = "A1:J3"  # two empty filter columns (I, J), like ODOO inv's A1:I filter
+    ws.freeze_panes = "D2"
+    ws2 = wb.create_sheet("ODOO inv")
+    ws2.append(["DL date", "Internal Reference", "Product Name", "WAREHOUSE", "PRODUCTION"])
+    ws2.append([datetime(2026, 9, 21), "3RM05-009-2", "Heating Element", 920, 99])
+    ws3 = wb.create_sheet("DATA")
+    ws3.append(["Product", "Product/Unit of Measure", "RM CODE", "DESCRIPTION"])
+    ws3.append(["[6RM08-962] Screw", "Piece", "6RM08-962", "Round / Pan Head / JP Machine Screw M3 x 25mm"])
+    wb.active = 0
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+def test_counting_upload_view_export_delete(client):
+    from oicas.db import session_factory
+    from oicas.models import AmcImport
+    data = _counted_workbook()
+    login(client, "counter")
+    page = client.get("/counting").text
+    assert "Upload the COUNTED LIST workbook" in page and "Start a count session" not in page
+    token = csrf(client, "/counting")
+    r = client.post("/counting/upload", data={"csrf": token, "uploaded_by": "Christine A"},
+                    files={"file": ("COUNTED LIST.xlsx", data)}, follow_redirects=False)
+    assert r.status_code == 303 and "/counting?open=" in r.headers["location"]  # counters can upload
+    iid = int(r.headers["location"].rsplit("=", 1)[1])
+    page = client.get("/counting").text
+    assert f'data-amc-open="{iid}"' in page and "Christine A" in page and 'data-base="/counting"' in page
+    assert f"/counting/{iid}/delete" not in page  # deleting needs a manager
+
+    view = client.get(f"/counting/{iid}/view").text
+    assert 'id="amc-sheet-name">LIST<' in view and "ODOO inv" in view and "DATA" in view
+    assert f'href="/counting/{iid}/download"' in view
+    db = session_factory()()
+    imp = db.get(AmcImport, iid)
+    assert imp.kind == "counted" and imp.seq == db.scalar(
+        select(func.count()).select_from(AmcImport).where(AmcImport.kind == "counted"))  # numbered per module
+    assert f"#{imp.seq}</span>" in page
+    db.close()
+    grid = client.get(f"/counting/{iid}/sheets/0").text
+    assert "9-Sep" in grid and "305.00" in grid
+    assert ">NR/CML/NRX Wire Set &lt;Assembly&gt;</td>" in grid  # next cell has a value: clipped, no spill
+    assert len(re.findall(r'<td class="[^"]*\baf\b', grid)) == 10 and ">J</th>" in grid  # filter buttons on the empty filter columns I and J too
+    data_grid = client.get(f"/counting/{iid}/sheets/2").text
+    assert re.search(r'class="xs\d+[^"]* ov ovw"><span class="sp" style="max-width:\d+px">Round / Pan Head', data_grid)
+    assert "3RM21-041" not in grid and "1 rows hidden by the filter" in grid  # hidden like Excel
+    assert "3RM21-041" in client.get(f"/counting/{iid}/sheets/0", params={"hidden": 1}).text
+    dl = client.get(f"/counting/{iid}/download")
+    assert dl.status_code == 200 and dl.content == data
+
+    # the two modules never show each other's uploads
+    assert str(iid) not in re.findall(r'data-amc-open="(\d+)"', client.get("/amc-import").text)
+    assert client.get(f"/amc-import/{iid}/view").status_code == 404
+    assert client.get(f"/amc-import/{iid}/sheets/0").status_code == 404
+    assert client.get(f"/amc-import/{iid}/download").status_code == 404
+
+    assert client.post(f"/counting/{iid}/delete", data={"csrf": token}).status_code == 403
+    login(client, "manager")
+    token = csrf(client, "/counting")
+    client.post(f"/amc-import/{iid}/delete", data={"csrf": csrf(client, "/amc-import")}, follow_redirects=False)
+    db = session_factory()()
+    assert db.get(AmcImport, iid) is not None  # not deletable from AMC Import
+    db.close()
+    r = client.post(f"/counting/{iid}/delete", data={"csrf": token}, follow_redirects=False)
+    assert r.status_code == 303 and r.headers["location"] == "/counting"
+    db = session_factory()()
+    assert db.get(AmcImport, iid) is None
+    db.close()
+
+
+def test_format_date_like_excel():
+    from datetime import date, datetime
+
+    from oicas.services.amc_import import format_value as f
+    assert f(datetime(2026, 9, 9), r"[$-409]d\-mmm;@") == "9-Sep"
+    assert f(datetime(2026, 9, 9), "mm-dd-yy") == "09-09-26"
+    assert f(datetime(2026, 9, 9), "dd/mm/yyyy") == "09/09/2026"
+    assert f(datetime(2026, 9, 9, 14, 5), "h:mm AM/PM") == "2:05 PM"
+    assert f(datetime(2026, 9, 9, 14, 5, 7), "hh:mm:ss") == "14:05:07"
+    assert f(date(2026, 9, 9), "mmmm d, yyyy") == "September 9, 2026"
+    assert f(datetime(2026, 9, 9), "General") == "09-09-2026"  # no date format: day-month-year
+
+
+def test_counted_list_real_workbook():
+    from pathlib import Path
+
+    from oicas.services import amc_import
+    f = Path(__file__).resolve().parents[2] / "docs" / "reference" / "COUNTED LIST.xlsx"
+    if not f.exists():
+        pytest.skip("reference workbook not available")
+    data = f.read_bytes()
+    sheets = amc_import.parse_workbook(data)
+    assert [s["name"] for s in sheets] == ["LIST", "ODOO inv", "DATA"]
+    assert amc_import.active_sheet_name(data) == "LIST"
+    ls = sheets[0]
+    assert ls["layout"]["fr"] == 1 and ls["layout"]["fc"] == 3 and ls["layout"]["grid"] is False
+    assert len(ls["layout"]["hrows"]) == 2795  # filtered to 9 Sep in Excel: 45 of 2,840 rows visible
+    assert ls["rows"][361][:2] == ["9-Sep", "9SH06-WS03"] and ls["rows"][361][3] == "305.00"
+    assert sheets[2]["layout"]["grid"] is True and sheets[2]["n_rows"] == 34882

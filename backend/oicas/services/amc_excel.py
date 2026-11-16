@@ -8,6 +8,7 @@ lines on frozen (sticky) rows and columns.
 """
 from __future__ import annotations
 
+import datetime as _dt
 import html
 import re
 from dataclasses import dataclass, field
@@ -344,8 +345,8 @@ def value_kind(v) -> str:
         return "e"
     if isinstance(v, bool):
         return "b"
-    if isinstance(v, (int, float)):
-        return "n"
+    if isinstance(v, (int, float, _dt.date, _dt.time, _dt.timedelta)):
+        return "n"  # Excel stores dates and times as numbers: right-aligned by default
     if isinstance(v, str) and v in ERRORS:
         return "x"
     return "t"

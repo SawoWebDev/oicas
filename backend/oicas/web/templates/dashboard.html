@@ -4,7 +4,7 @@
 {% block page_title %}{{ user.name or user.login }}{% endblock %}
 {% block header_actions %}
   {% if can('plan.manage') %}<a class="btn btn-soft btn-sm" href="/planning?due_status=overdue"><i class="bi bi-calendar2-check"></i> Plan counts</a>{% endif %}
-  {% if can('count.enter') %}<a class="btn btn-primary btn-sm" href="/counting"><i class="bi bi-plus-lg"></i> New Count</a>{% endif %}
+  {% if can('count.enter') %}<a class="btn btn-primary btn-sm" href="/counting"><i class="bi bi-file-earmark-arrow-up"></i> Upload counted list</a>{% endif %}
 {% endblock %}
 {% block content %}
 {% macro kpi(icon, tone, label, value, href, sub='') -%}

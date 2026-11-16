@@ -44,6 +44,19 @@
     {% endfor %}</tbody>
   </table></div>
 </div>
+{% if can('count.enter') and plan.status == 'open' %}
+<div class="card-soft mb-3"><div class="card-head"><h2><i class="bi bi-file-earmark-arrow-up"></i> Upload the filled count sheet</h2></div>
+  <div class="card-body-soft">
+    <form method="post" action="/counting/count-sheet/upload" enctype="multipart/form-data" class="row g-2 align-items-end">
+      <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="plan_id" value="{{ plan.id }}">
+      <div class="col-lg-5"><label class="form-label small">Count sheet (Excel)</label><input class="form-control form-control-sm" type="file" name="file" accept=".xlsx" required></div>
+      <div class="col-lg-2 col-md-4"><label class="form-label small">Count date (if not in sheet)</label><input class="form-control form-control-sm" type="date" name="count_date" max="{{ today.isoformat() }}"></div>
+      <div class="col-lg-3 col-md-4"><label class="form-label small">Counted by (if not in sheet)</label><input class="form-control form-control-sm" name="counted_by"></div>
+      <div class="col-lg-2 col-md-4"><button class="btn btn-soft btn-sm w-100"><i class="bi bi-upload"></i> Upload as draft</button></div>
+      <div class="col-12"><span class="small-note">The sheet downloaded with <b>Count sheet (Excel)</b> above. Blank cells = not counted; 0 = counted zero.</span></div>
+    </form>
+  </div></div>
+{% endif %}
 <div class="card-soft"><div class="card-head"><h2>Count sessions for this plan</h2></div>
   <div class="table-responsive"><table class="table table-soft table-compact"><thead><tr><th>Session</th><th>Date</th><th>Counted by</th><th>Status</th><th></th></tr></thead>
   <tbody>{% for s in sessions %}<tr><td>#{{ s.id }}</td><td>{{ fmt(s.count_date, 'date') }}</td><td>{{ s.counted_by_name }}</td><td>{{ pill(s.status) }}</td><td class="text-end"><a class="btn btn-outline-primary btn-xs" href="/counting/sessions/{{ s.id }}">Open</a></td></tr>

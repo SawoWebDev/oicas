@@ -1,36 +1,24 @@
-<p class="help-lead">Record what was physically counted. A <b>count session</b> is one counter on one date. It contains <b>entries</b>, and each entry is one counted figure for one item at one location.</p>
-<h3>Session life cycle</h3>
-<p>{{ pill('draft') }} → {{ pill('submitted') }} → {{ pill('finalized') }} (or {{ pill('cancelled') }})</p>
-<table class="table table-sm table-bordered"><tbody>
-  <tr><th style="width:22%">Draft</th><td>The counter adds and removes entries freely.</td></tr>
-  <tr><th>Submitted</th><td>Entries are locked. They can only be <b>corrected</b> by a manager, who gives a new quantity and a reason; the original stays in history.</td></tr>
-  <tr><th>Finalized</th><td>A manager finalizes. OICAS compares the counts with the latest Odoo snapshot (or book balance) and creates the reconciliation results.</td></tr>
-  <tr><th>Cancelled</th><td>Draft or submitted sessions can be cancelled with a reason.</td></tr>
-</tbody></table>
-<h3>Option A — enter counts on screen</h3>
+<p class="help-lead"><span class="ui">Physical Counting</span> keeps every uploaded copy of the <b>COUNTED LIST</b> workbook. Each upload is a <b>session</b>: you can open it to look through its sheets exactly as Excel shows them, download the original file again, or delete it.</p>
+<h3>Upload a workbook</h3>
 <ol class="help-steps">
-  <li><span class="ui">Physical Counting → Start a count session</span>: count date (not in the future), counted by, optional plan, remarks → <span class="ui">Start session</span>.</li>
-  <li>For each figure: type the <b>RM code</b> (suggestions appear after 2 letters), choose <b>Location</b> (Warehouse / Production), <b>Slot</b> (1–4 = WH-1…4 or PROD-1…4), <b>Round</b>, <b>Quantity</b> and optional remarks → <span class="ui">Add</span>.</li>
-  <li>Check the list, then <span class="ui">Submit</span>.</li>
-  <li>Manager: <span class="ui">Finalize &amp; reconcile</span>. The results appear under <i>Reconciliation results</i>, each with a <span class="ui">Review</span> button.</li>
+  <li>Choose the Excel file (.xlsx, up to 30 MB), e.g. <i>COUNTED LIST.xlsx</i>.</li>
+  <li>Check <span class="ui">Uploaded by</span>. It starts with your name; change it if you are uploading for someone else.</li>
+  <li>Press <span class="ui">Upload</span>. After a few seconds the new session opens.</li>
 </ol>
-<h3>Option B — upload a filled count sheet</h3>
-<ol class="help-steps">
-  <li>Download the sheet from the plan (<span class="ui">Count sheet (Excel)</span>). Fill B2 = count date, B3 = counted by, and the quantities per column.</li>
-  <li><span class="ui">Physical Counting → Upload a filled count sheet</span> → <span class="ui">Upload as draft</span>. Errors (unknown code, text in a quantity, negative number) are listed and nothing is saved.</li>
-  <li>Review the draft, then Submit and Finalize as above.</li>
-</ol>
-<p>For many dates or counters in one file, use <a href="#help-imports" data-help-topic="imports">Data Import → Count lines</a>.</p>
-<h3>Rules to remember</h3>
+<h3>The session list</h3>
+<p>Each row shows the session number, the date and time of the upload, who uploaded it and the actions:</p>
 <ul>
-  <li><b>Blank = not counted. Enter 0 only if you counted and found nothing.</b></li>
-  <li>Several entries for the same item, location and date are <b>added together</b> (e.g. WH-1 = 60 and WH-2 = 40 → warehouse total 100), just like COUNTED LIST.</li>
-  <li>Pressing a button twice doesn't create duplicates.</li>
-  <li>If the Odoo data is older than allowed (default 24 h), finalizing asks you to tick <i>finalize against stale Odoo data</i>. It's better to <b>Sync Odoo now</b> first.</li>
+  <li><span class="ui">Details</span> opens the workbook in a large window, on the sheet Excel opens on (<b>LIST</b>). The sheet tabs (LIST, ODOO inv, DATA) sit above the grid. The header row and the DATE COUNTED, RM CODE and Description columns stay in view while you scroll, as in Excel. Search finds a code or description in the current sheet. Long sheets are shown 200 rows per page.</li>
+  <li><span class="ui">Export</span> (or <span class="ui">Export Excel</span> in the window) downloads the file exactly as it was uploaded, formulas included.</li>
+  <li><span class="ui">Delete</span> removes the session and its file. You are asked to confirm, and it can't be undone.</li>
 </ul>
-<div class="help-example"><div class="lbl">Example</div>
-  Session #36, 2026-10-20, Christine A: 8RM04-341-1 Warehouse slot 1 = <b>220.4</b>; 1SH03-001 Warehouse slot 1 = <b>2,400</b> → Submit → manager Finalize against Odoo snapshot #41 →
-  8RM04-341-1: 220.4 vs 220.4 → {{ pill('accurate') }}; 1SH03-001: 2,400 vs 2,403 → variance <b>−3</b> {{ pill('discrepancy') }}.
-</div>
-<h3>Correcting a submitted count</h3>
-<p>On the session page (manager): type the new qty and the <b>reason</b> on the entry's row → <span class="ui">Correct</span>. The old entry is struck through, the new one is added, and if the session was already finalized, the reconciliation is recalculated.</p>
+<h3>What you see</h3>
+<ul>
+  <li>Dates, counts (<i>305.00</i>) and colours are shown as Excel displays them. Values are the ones Excel last calculated and saved, e.g. the Description looked up from DATA and the TOTAL COUNT sums.</li>
+  <li>Rows hidden by the Excel filter stay hidden. If the file was saved with LIST filtered to one date, you see only that date's rows; the footer says how many rows are hidden and <span class="ui">Show them</span> shows all of them.</li>
+  <li>The upload is for viewing only: its counts are <b>not</b> added to Reconciliation, Count History or the Annual inventory.</li>
+</ul>
+<h3>Counting from a plan</h3>
+<p>Counts that should be reconciled against Odoo still go through a count plan: on <a href="#help-planning" data-help-topic="planning">Cycle Count Planning</a> → plan, use <span class="ui">Start counting</span> to type counts, or download <span class="ui">Count sheet (Excel)</span>, fill it in and use <span class="ui">Upload the filled count sheet</span> on the same page. Those sessions are submitted and finalized on their own session page, and their results appear in <a href="#help-reconciliation" data-help-topic="reconciliation">Reconciliation</a>. For many dates or counters in one file, use <a href="#help-imports" data-help-topic="imports">Data Import → Count lines</a>.</p>
+<h3>Who can do what</h3>
+<p>Counters and above can view, export and upload. Deleting an upload needs the <b>manager</b> role or higher. Uploads, downloads and deletions are recorded in the <a href="#help-audit" data-help-topic="audit">Audit Trail</a>.</p>

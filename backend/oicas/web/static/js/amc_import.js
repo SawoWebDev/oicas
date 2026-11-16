@@ -1,9 +1,10 @@
-/* AMC Import: large modal viewer for an uploaded workbook (sheet tabs, search, paging) and upload feedback. */
+/* Workbook uploads (AMC Import, Physical Counting): large modal viewer for an uploaded workbook (sheet tabs, search, paging) and upload feedback. */
 (function () {
   "use strict";
   var modal = document.getElementById("amc-modal");
   if (!modal) return;
   var box = document.getElementById("amc-modal-box");
+  var base = modal.getAttribute("data-base") || "/amc-import"; // module URL: /amc-import or /counting
   var loadingHtml = '<div class="amc-loading"><span class="spinner-border spinner-border-sm"></span> Loading…</div>';
   var state = { iid: null, sheet: 0, page: 1, q: "", hidden: 0, from: null, req: 0 };
   var searchTimer = null;
@@ -20,7 +21,7 @@
     if (!grid) return;
     var my = ++state.req;
     grid.classList.add("is-loading");
-    var url = "/amc-import/" + state.iid + "/sheets/" + state.sheet + "?page=" + state.page + "&q=" + encodeURIComponent(state.q) + "&hidden=" + state.hidden;
+    var url = base + "/" + state.iid + "/sheets/" + state.sheet + "?page=" + state.page + "&q=" + encodeURIComponent(state.q) + "&hidden=" + state.hidden;
     get(url).then(function (res) {
       if (my !== state.req) return; // a newer request replaced this one
       grid.innerHTML = res.html;
@@ -40,7 +41,7 @@
     modal.hidden = false;
     document.body.classList.add("modal-open-oi");
     box.focus();
-    get("/amc-import/" + iid + "/view").then(function (res) {
+    get(base + "/" + iid + "/view").then(function (res) {
       box.innerHTML = res.html;
       if (!res.ok) return;
       // start on the sheet Excel opens on (the workbook's active tab), like opening the file

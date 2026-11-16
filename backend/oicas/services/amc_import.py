@@ -44,12 +44,79 @@ def _clean_format(fmt: str) -> str:
     return fmt.strip()
 
 
+_DATE_TOKEN = re.compile(r'"[^"]*"|\\.|\[[^\]]*\]|_.|\*.|am/pm|a/p|yyyy|yy|mmmmm|mmmm|mmm|mm|m|dddd|ddd|dd|d|hh|h|ss|s|.',
+                         re.I)
+
+
+def format_date(v: date, number_format: str | None) -> str | None:
+    """A date/time as Excel shows it with a date number format (e.g. ``[$-409]d\\-mmm;@`` → ``9-Sep``).
+    None when the format has no date or time part (the caller falls back to day-month-year)."""
+    fmt = (number_format or "").split(";")[0]
+    toks = _DATE_TOKEN.findall(fmt)
+    if not any(t.lower()[0] in "ydhs" or t.lower().startswith("m") for t in toks if t[0] not in '"\\[_*'):
+        return None
+    dt = v if isinstance(v, datetime) else datetime.combine(v, time(0))
+    ampm = any(t.lower() in ("am/pm", "a/p") for t in toks)
+    kinds = [t.lower() if t[0] not in '"\\[_*' else "" for t in toks]
+    out = []
+    for i, t in enumerate(toks):
+        k = kinds[i]
+        if t[0] == '"':
+            out.append(t[1:-1])
+        elif t[0] == "\\":
+            out.append(t[1:])
+        elif t[0] in "[_*":
+            out.append(" " if t[0] == "_" else "")
+        elif k in ("m", "mm"):
+            prev = next((x for x in reversed(kinds[:i]) if x and x[0] in "ymdhs"), "")
+            nxt = next((x for x in kinds[i + 1:] if x and x[0] in "ymdhs"), "")
+            minutes = prev.startswith("h") or nxt.startswith("s")
+            n = dt.minute if minutes else dt.month
+            out.append(f"{n:02d}" if k == "mm" else str(n))
+        elif k == "mmm":
+            out.append(dt.strftime("%b"))
+        elif k == "mmmm":
+            out.append(dt.strftime("%B"))
+        elif k == "mmmmm":
+            out.append(dt.strftime("%b")[0])
+        elif k == "yyyy":
+            out.append(f"{dt.year:04d}")
+        elif k == "yy":
+            out.append(f"{dt.year % 100:02d}")
+        elif k == "d":
+            out.append(str(dt.day))
+        elif k == "dd":
+            out.append(f"{dt.day:02d}")
+        elif k == "ddd":
+            out.append(dt.strftime("%a"))
+        elif k == "dddd":
+            out.append(dt.strftime("%A"))
+        elif k in ("h", "hh"):
+            h = (dt.hour % 12 or 12) if ampm else dt.hour
+            out.append(f"{h:02d}" if k == "hh" else str(h))
+        elif k in ("s", "ss"):
+            out.append(f"{dt.second:02d}" if k == "ss" else str(dt.second))
+        elif k == "am/pm":
+            out.append("AM" if dt.hour < 12 else "PM")
+        elif k == "a/p":
+            out.append("A" if dt.hour < 12 else "P")
+        elif t == "@":
+            continue
+        else:
+            out.append(t)
+    return "".join(out)
+
+
 def format_value(v, number_format: str | None = "General") -> str:
-    """Show a cell value as Excel would for the common formats in the AMC workbook."""
+    """Show a cell value as Excel would for the common formats in the uploaded workbooks."""
     if v is None:
         return ""
     if isinstance(v, bool):
         return "TRUE" if v else "FALSE"
+    if isinstance(v, date):
+        shown = format_date(v, number_format)
+        if shown is not None:
+            return shown
     if isinstance(v, datetime):
         return v.strftime("%d-%m-%Y %H:%M") if v.time() != time(0) else v.strftime("%d-%m-%Y")
     if isinstance(v, date):
@@ -271,6 +338,8 @@ def parse_workbook(data: bytes) -> list[dict]:
                 if rn > MAX_ROWS + 5000 and last_row < rn - 5000:
                     break  # long blank tail (formatted-but-empty rows)
             rows, grid = rows[:last_row], grid[:last_row]
+            if lay.filter and n_cols:
+                n_cols = max(n_cols, min(lay.filter[3], MAX_COLS))  # Excel draws filter buttons on empty headers too
             if len(rows) > MAX_ROWS:
                 raise AmcImportError(f"Sheet '{ws.title}' has {len(rows):,} rows; the limit is {MAX_ROWS:,}.")
             blank = style_index(0, "e", ())
@@ -282,7 +351,7 @@ def parse_workbook(data: bytes) -> list[dict]:
             layout = {"colpx": [0 if c in lay.hidden_cols else amc_excel.width_px(lay.col_widths.get(c, dw))
                                 for c in range(1, n_cols + 1)],
                       "rowpx": {str(r): amc_excel.pt_px(h) for r, h in lay.row_pt.items() if r <= len(rows)},
-                      "defrow": amc_excel.pt_px(lay.default_row_pt), "grid": lay.grid,
+                      "defrow": amc_excel.pt_px(lay.default_row_pt), "grid": lay.grid, "dcol": amc_excel.width_px(dw),
                       "fr": min(lay.freeze_rows, len(rows)), "fc": min(lay.freeze_cols, n_cols),
                       "filter": lay.filter, "fcols": sorted(lay.filter_cols),
                       "hrows": sorted(r for r in lay.hidden_rows if r <= len(rows))}
@@ -299,7 +368,19 @@ def parse_workbook(data: bytes) -> list[dict]:
 
 
 # ------------------------------------------------------------------ sessions
-def create(db: Session, user: User, data: bytes, filename: str, uploaded_by: str, ip: str | None = None) -> AmcImport:
+# Two modules keep uploaded workbooks here: AMC Import ("amc") and Physical Counting ("counted", COUNTED LIST).
+KINDS = {"amc": ("amc_import", "AMC import"), "counted": ("counted_list", "Counted list upload")}
+
+
+def _kind(kind: str) -> tuple[str, str]:
+    if kind not in KINDS:
+        raise AmcImportError(f"unknown upload kind {kind!r}")
+    return KINDS[kind]
+
+
+def create(db: Session, user: User, data: bytes, filename: str, uploaded_by: str, ip: str | None = None,
+           kind: str = "amc") -> AmcImport:
+    audit_prefix, _ = _kind(kind)
     filename = (filename or "upload.xlsx").replace("\\", "/").rsplit("/", 1)[-1][:250]
     uploaded_by = (uploaded_by or "").strip()[:200]
     if not uploaded_by:
@@ -311,9 +392,10 @@ def create(db: Session, user: User, data: bytes, filename: str, uploaded_by: str
     if len(data) > MAX_BYTES:
         raise AmcImportError(f"File too large (max {MAX_BYTES // (1024 * 1024)} MB).")
     sheets = parse_workbook(data)
-    imp = AmcImport(filename=filename, uploaded_by=uploaded_by, uploaded_by_user_id=user.id, size_bytes=len(data),
-                    sha256=hashlib.sha256(data).hexdigest(), content=data, sheet_count=len(sheets),
-                    row_count=sum(s["n_rows"] for s in sheets),
+    seq = (db.scalar(select(func.max(AmcImport.seq)).where(AmcImport.kind == kind)) or 0) + 1
+    imp = AmcImport(kind=kind, seq=seq, filename=filename, uploaded_by=uploaded_by, uploaded_by_user_id=user.id,
+                    size_bytes=len(data), sha256=hashlib.sha256(data).hexdigest(), content=data,
+                    sheet_count=len(sheets), row_count=sum(s["n_rows"] for s in sheets),
                     active_sheet=active_position(data, [s["name"] for s in sheets]))
     colors = tab_colors(data)
     for pos, s in enumerate(sheets):
@@ -323,34 +405,38 @@ def create(db: Session, user: User, data: bytes, filename: str, uploaded_by: str
                                          tab_color=colors.get(s["name"])))
     db.add(imp)
     db.flush()
-    audit.record(db, user, "amc_import.upload", "amc_import", imp.id,
+    audit.record(db, user, f"{audit_prefix}.upload", "amc_import", imp.id,
                  {"filename": filename, "uploaded_by": uploaded_by, "bytes": len(data), "sheets": len(sheets),
                   "sha256": imp.sha256}, ip)
     return imp
 
 
-def listing(db: Session) -> list[AmcImport]:
-    return list(db.scalars(select(AmcImport).order_by(AmcImport.id.desc())).all())
+def listing(db: Session, kind: str = "amc") -> list[AmcImport]:
+    _kind(kind)
+    return list(db.scalars(select(AmcImport).where(AmcImport.kind == kind).order_by(AmcImport.id.desc())).all())
 
 
-def get(db: Session, iid: int) -> AmcImport:
+def get(db: Session, iid: int, kind: str = "amc") -> AmcImport:
+    """The upload ``iid`` of this module; another module's upload is reported as not found."""
+    _, label = _kind(kind)
     imp = db.get(AmcImport, iid)
-    if imp is None:
-        raise AmcImportError(f"AMC import #{iid} not found.")
+    if imp is None or imp.kind != kind:
+        raise AmcImportError(f"{label} not found.")
     return imp
 
 
-def sheet(db: Session, iid: int, pos: int) -> AmcImportSheet:
-    s = db.scalars(select(AmcImportSheet).where(AmcImportSheet.import_id == iid,
-                                                AmcImportSheet.position == pos)).first()
+def sheet(db: Session, iid: int, pos: int, kind: str = "amc") -> AmcImportSheet:
+    s = db.scalars(select(AmcImportSheet).join(AmcImport, AmcImport.id == AmcImportSheet.import_id)
+                   .where(AmcImportSheet.import_id == iid, AmcImportSheet.position == pos,
+                          AmcImport.kind == kind)).first()
     if s is None:
         raise AmcImportError("Sheet not found.")
     return s
 
 
-def delete(db: Session, user: User, iid: int, ip: str | None = None) -> AmcImport:
-    imp = get(db, iid)
-    audit.record(db, user, "amc_import.delete", "amc_import", imp.id,
+def delete(db: Session, user: User, iid: int, ip: str | None = None, kind: str = "amc") -> AmcImport:
+    imp = get(db, iid, kind)
+    audit.record(db, user, f"{KINDS[kind][0]}.delete", "amc_import", imp.id,
                  {"filename": imp.filename, "uploaded_by": imp.uploaded_by, "uploaded_at": imp.uploaded_at,
                   "sha256": imp.sha256}, ip)
     db.delete(imp)
@@ -359,16 +445,24 @@ def delete(db: Session, user: User, iid: int, ip: str | None = None) -> AmcImpor
 
 
 def record_download(db: Session, user: User, imp: AmcImport, ip: str | None = None) -> None:
-    audit.record(db, user, "amc_import.download", "amc_import", imp.id, {"filename": imp.filename}, ip)
+    audit.record(db, user, f"{KINDS[imp.kind][0]}.download", "amc_import", imp.id, {"filename": imp.filename}, ip)
 
 
-def count(db: Session) -> int:
-    return db.scalar(select(func.count()).select_from(AmcImport)) or 0
+def count(db: Session, kind: str = "amc") -> int:
+    return db.scalar(select(func.count()).select_from(AmcImport).where(AmcImport.kind == kind)) or 0
 
 
 # ------------------------------------------------------------------ display
 RN_W = 46  # row-number column, px
 NO_BORDER = ["", "", "", ""]
+TAIL_MIN_W = 1600  # Excel keeps drawing empty columns to the right; add some so the grid ends like a sheet
+SPILL_MAX = 3000   # px a text may run over empty cells to its right
+
+
+def _spills(css: str, text: str) -> bool:
+    """Excel lets left-aligned, unwrapped text run on over empty cells to its right (numbers never do)."""
+    return bool(text) and "pre-wrap" not in css and not any(
+        f"text-align:{a}" in css for a in ("right", "center", "justify")) and not is_numeric(text)
 
 
 def page(s: AmcImportSheet, page_no: int = 1, q: str = "", per_page: int = PAGE_SIZE, show_hidden: bool = False) -> dict:
@@ -424,9 +518,29 @@ def page(s: AmcImportSheet, page_no: int = 1, q: str = "", per_page: int = PAGE_
     fcols = set(lay.get("fcols", []))
     last_head = head_n[-1] if head_n else 0
     last_fz = max((c for c in vcols if c <= fc), default=0)
+    # empty columns after the last used one, as Excel shows them
+    dcol = lay.get("dcol") or 64
+    tail = []
+    while len(tail) < 3 or x < TAIL_MIN_W:
+        tail.append(n_cols + len(tail) + 1)
+        x += dcol
+    width_of = {c: colpx[c - 1] for c in vcols} | {c: dcol for c in tail}
+    rest_w: dict[int, int] = {}  # px of the used columns right of each column
+    acc = 0
+    for c in reversed(vcols):
+        rest_w[c] = acc
+        acc += width_of[c]
 
     def build(n: int) -> list[dict]:
         out = []
+        row = rows[n - 1]
+        empty_after: dict[int, int] = {}  # visible column -> px of empty, unmerged cells right after it
+        run = 0
+        for c in reversed(vcols):
+            empty_after[c] = run
+            blank = not row[c - 1] and (n, c) not in covered and (n, c) not in spans                 and not (flt and n == flt[0] and flt[1] <= c <= flt[3])
+            run = run + width_of[c] if blank else 0
+        tail_w = sum(width_of[c] for c in tail)
         for c in vcols:
             if (n, c) in covered:
                 continue
@@ -451,10 +565,20 @@ def page(s: AmcImportSheet, page_no: int = 1, q: str = "", per_page: int = PAGE_
                     cls.append("fzl")
             if n == last_head:
                 cls.append("fzb")
-            if flt and n == flt[0] and flt[1] <= c <= flt[3]:
+            af = flt and n == flt[0] and flt[1] <= c <= flt[3]
+            if af:
                 cls.append("af on" if c in fcols else "af")
-            out.append({"t": rows[n - 1][c - 1], "cls": " ".join(cls), "rs": sp[0] if sp and sp[0] > 1 else 0,
-                        "cs": sp[1] if sp and sp[1] > 1 else 0, "left": left_of.get(c)})
+            text = row[c - 1]
+            spill = 0
+            if not sp and c > fc and not af and _spills(table[idx]["c"], text):
+                more = empty_after[c] + (tail_w if empty_after[c] == rest_w[c] else 0)
+                if more:
+                    spill = min(width_of[c] + more, SPILL_MAX) - 4
+                    cls.append("ov" if "background-color" in table[idx]["c"] else "ov ovw")
+            out.append({"t": text, "cls": " ".join(cls), "rs": sp[0] if sp and sp[0] > 1 else 0,
+                        "cs": sp[1] if sp and sp[1] > 1 else 0, "left": left_of.get(c), "sp": spill})
+        last = "fzb" if n == last_head else ""
+        out.extend({"t": "", "cls": last, "rs": 0, "cs": 0, "left": None, "sp": 0} for _ in tail)
         return out
 
     head = [(n, build(n), rowpx.get(n)) for n in head_n]
@@ -466,7 +590,8 @@ def page(s: AmcImportSheet, page_no: int = 1, q: str = "", per_page: int = PAGE_
     return {"head": head, "rows": body_rows, "page": page_no, "pages": pages, "count": len(body), "q": q,
             "start": start + 1 if shown else 0, "end": start + len(shown), "css": "\n".join(css),
             "letters": [{"L": get_column_letter(c), "left": left_of.get(c), "fz": c <= fc, "last": c == last_fz}
-                        for c in vcols],
-            "cols": [colpx[c - 1] for c in vcols], "width": x, "rn": RN_W, "grid": lay.get("grid", True),
+                        for c in vcols] + [{"L": get_column_letter(c), "left": None, "fz": False, "last": False}
+                                           for c in tail],
+            "cols": [colpx[c - 1] for c in vcols] + [dcol] * len(tail), "width": x, "rn": RN_W, "grid": lay.get("grid", True),
             "defrow": lay.get("defrow", 20), "hidden_n": hidden_n, "show_hidden": show_hidden, "per_page": per_page,
-            "n_cols": len(vcols)}
+            "n_cols": len(vcols), "tail": len(tail)}

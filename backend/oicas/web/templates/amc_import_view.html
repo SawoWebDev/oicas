@@ -2,7 +2,7 @@
   <span class="d-ic tone-green"><i class="bi bi-file-earmark-spreadsheet-fill"></i></span>
   <div class="overflow-hidden">
     {% set first = imp.sheets[imp.active_sheet] if imp.active_sheet < imp.sheets|length else imp.sheets[0] %}
-    <div class="oi-modal-title text-truncate" id="amc-title">Session #{{ imp.id }} · {{ imp.filename }}
+    <div class="oi-modal-title text-truncate" id="amc-title">Session #{{ imp.number }} · {{ imp.filename }}
       <span class="amc-sheet-chip" title="Sheet you are viewing"><i class="bi bi-table"></i> <span id="amc-sheet-name">{{ first.name }}</span></span></div>
     <div class="oi-modal-sub">Uploaded by <b>{{ imp.uploaded_by }}</b> · {{ fmt(imp.uploaded_at, 'datetime') }} · {{ imp.sheet_count }} sheets · {{ '{:,}'.format(imp.row_count) }} rows</div>
   </div>
@@ -12,7 +12,7 @@
     <select class="form-select form-select-sm amc-zoom" id="amc-zoom" aria-label="Zoom" title="Zoom (100% = Excel's own size)">
       {% for z in (70, 80, 90, 100, 110, 125, 150) %}<option value="{{ z }}"{% if z == 100 %} selected{% endif %}>{{ z }}%</option>{% endfor %}
     </select>
-    <a class="btn btn-soft btn-sm" href="/amc-import/{{ imp.id }}/download"><i class="bi bi-download"></i> Export Excel</a>
+    <a class="btn btn-soft btn-sm" href="{{ mod.root }}/{{ imp.id }}/download"><i class="bi bi-download"></i> Export Excel</a>
     <button type="button" class="btn-close" data-amc-close aria-label="Close"></button>
   </div>
 </div>
