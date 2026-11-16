@@ -480,3 +480,12 @@ class AppSetting(Base):
     value: Mapped[dict | list | str | int | float | bool | None] = mapped_column(JSON)
     updated_at: Mapped[datetime] = mapped_column(TS, default=utcnow, onupdate=utcnow)
     updated_by_id: Mapped[int | None] = mapped_column(ForeignKey("app_user.id"))
+
+
+class MasterlistRemark(Base):
+    """Remark typed on the Inventory Masterlist page for one RM code (the code may not exist in Odoo)."""
+    __tablename__ = "masterlist_remark"
+    code: Mapped[str] = mapped_column(String(120), primary_key=True)
+    remark: Mapped[str | None] = mapped_column(Text)
+    updated_at: Mapped[datetime] = mapped_column(TS, default=utcnow, onupdate=utcnow)
+    updated_by_id: Mapped[int | None] = mapped_column(ForeignKey("app_user.id"))

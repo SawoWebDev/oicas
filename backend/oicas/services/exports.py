@@ -28,7 +28,7 @@ from .reports import REGISTRY, Column, ReportResult
 
 LOGO = Path(__file__).resolve().parents[1] / "web" / "static" / "img" / "sawo-logo.png"
 BRAND_RED = "E31E24"
-NUM_FMT = {"qty": "#,##0.00###", "int": "#,##0", "pct": "0.00%", "date": "yyyy-mm-dd", "datetime": "yyyy-mm-dd hh:mm"}
+NUM_FMT = {"qty": "#,##0.00###", "int": "#,##0", "pct": "0.00%", "date": "yyyy-mm-dd", "longdate": "mmmm dd, yyyy", "datetime": "yyyy-mm-dd hh:mm"}
 
 
 def fmt(value, kind: str) -> str:
@@ -44,6 +44,8 @@ def fmt(value, kind: str) -> str:
         return f"{int(value):,}"
     if kind == "date":
         return value.strftime("%Y-%m-%d") if isinstance(value, (date, datetime)) else str(value)
+    if kind == "longdate":  # September 01, 2026
+        return value.strftime("%B %d, %Y") if isinstance(value, (date, datetime)) else str(value)
     if kind == "datetime":
         return value.astimezone().strftime("%Y-%m-%d %H:%M") if isinstance(value, datetime) else str(value)
     if isinstance(value, bool):

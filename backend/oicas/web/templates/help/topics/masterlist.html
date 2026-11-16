@@ -1,27 +1,26 @@
-<p class="help-lead">One row per item, with everything about it joined together: classification, AMC, count interval, latest count, Odoo balance, discrepancy and next count. It replaces the Excel <i>Master</i> sheet and updates itself; nothing needs copying.</p>
+<p class="help-lead">One row per item, laid out exactly like the <i>Master</i> sheet of the <b>Inventory Masterlist &amp; Cycle Count tracker</b>. It reads the latest <b>AMC Import</b> upload, the latest <b>COUNTED LIST</b> upload (Physical Counting) and the latest Odoo sync, so uploading a new file updates the page.</p>
 <h3>Columns</h3>
 <table class="table table-sm table-bordered">
   <thead><tr><th>Column</th><th>Meaning</th><th>Comes from</th></tr></thead>
   <tbody>
-    <tr><td>RM Code / Description / UoM</td><td>Item identity and unit</td><td>Odoo (or Data Import for items not in Odoo)</td></tr>
-    <tr><td>Action</td><td>CLOSE CONTROL / REGULAR REVIEW / INFREQUENT REVIEW</td><td>Approved analysis run</td></tr>
-    <tr><td>Classification</td><td>Fast / Medium / Slow / Non Moving</td><td>Approved analysis run</td></tr>
-    <tr><td>Category</td><td>ABC quantity class + frequency class (e.g. AB)</td><td>Approved analysis run</td></tr>
-    <tr><td>AMC</td><td>Average monthly consumption</td><td>Approved analysis run</td></tr>
-    <tr><td>Material Section · ABC Family · Plant Location · Remark</td><td>OICAS-owned attributes</td><td>Item page / Data Import</td></tr>
-    <tr><td>Interval (days)</td><td>How often the item must be counted: 30 / 90 / 180</td><td>Category → classification matrix</td></tr>
-    <tr><td>Counted Date</td><td>Date of the latest finalized count</td><td>Latest reconciliation</td></tr>
-    <tr><td>Next Count / Schedule</td><td>Counted date + interval; status overdue / due today / upcoming / scheduled / unscheduled</td><td>Schedule</td></tr>
-    <tr><td>Actual Count (WH) / (PROD)</td><td>Sum of that day's counted quantities per location</td><td>Count entries</td></tr>
-    <tr><td>Stock in Months</td><td>(WH + PROD counted) ÷ AMC</td><td>Calculated</td></tr>
-    <tr><td>Odoo WH / Odoo Pre-Prod</td><td>System balance at the time of the count</td><td>Odoo snapshot (or book balance)</td></tr>
-    <tr><td>Discrepancy (WH) / (PROD)</td><td>Physical − Odoo. Red = short (negative)</td><td>Reconciliation</td></tr>
-    <tr><td>Reconciliation / Review</td><td>accurate · discrepancy · odoo missing · not counted / open · investigating · recount requested · resolved</td><td>Reconciliation</td></tr>
+    <tr><td>RM Code</td><td>Item code</td><td>AMC file, sheet CONSOLIDATED</td></tr>
+    <tr><td>Description</td><td>Item name</td><td>Odoo (AMC file when Odoo doesn't know the code)</td></tr>
+    <tr><td>Action · Classification · AMC · Material Section · Plant Location</td><td>CLOSE CONTROL… · Fast / Medium / Slow / Non Moving · average monthly consumption · section · plant</td><td>AMC file</td></tr>
+    <tr><td>Interval · Interval (days)</td><td>Count interval code (e.g. ABMTS) and days (30 / 90 / 180)</td><td>AMC file</td></tr>
+    <tr><td>Unit of Measure</td><td>Unit</td><td>Odoo</td></tr>
+    <tr><td>Counted Date</td><td>Latest <i>DATE COUNTED</i> of the code</td><td>COUNTED LIST, sheet LIST, column A</td></tr>
+    <tr><td>Next Count</td><td>Counted Date + Interval (days). Blank when never counted</td><td>Calculated</td></tr>
+    <tr><td>Actual Count (WH) / (PROD)</td><td>Total of the lines counted on the Counted Date</td><td>COUNTED LIST, columns D / E</td></tr>
+    <tr><td>Stock in Months</td><td>(Actual WH + Actual PROD) ÷ AMC. Blank when AMC is 0</td><td>Calculated</td></tr>
+    <tr><td>Odoo WH / Odoo Pre-Prod</td><td>Current system balance</td><td>Latest Odoo snapshot</td></tr>
+    <tr><td>Discrepancy (WH) / (PROD)</td><td>Actual WH − Odoo WH · Actual PROD − Odoo Pre-Prod. Red = short</td><td>Calculated</td></tr>
+    <tr><td>Remarks</td><td>Free text; managers type it straight in the table, saved when they leave the box</td><td>This page</td></tr>
   </tbody>
 </table>
+<p>Dates are written as <b>September 01, 2026</b>.</p>
 <h3>How to use it</h3>
 <ul>
-  <li>Filter by search, movement class, action, section, family, plant, schedule, <b>Counted</b> (yes/no) and <b>Discrepancy</b> (yes/no), then <span class="ui">Apply</span>.</li>
+  <li>Filter by search, movement class, action, material section, plant, <b>Counted</b> (yes/no) and <b>Discrepancy</b> (yes/no), then <span class="ui">Apply</span>.</li>
   <li>Click a header to sort. <span class="ui">Excel</span>/<span class="ui">PDF</span> export the filtered list.</li>
   <li>Click an <b>RM code</b> to open the <b>item page</b>.</li>
 </ul>
@@ -36,5 +35,5 @@
   <li><b>Count entries</b> and <b>Reconciliation history</b>: every count ever made, with corrections struck through.</li>
 </ul>
 <div class="help-example"><div class="lbl">Example</div>
-  <b>10RM01-018 Isopropyl Alcohol</b>: classification <i>Non Moving</i>, never counted → Counted Date “–”, Actual Count “–”, Stock in Months “–” (not 0), Next Count = today (due), because never-counted items are due now.
+  <b>8RM04-341-1 Acid - Citric</b>: AMC 124.28, interval 30 days, counted October 12, 2026 (WH 214.882) → Next Count <b>November 11, 2026</b>, Stock in Months 214.882 ÷ 124.28 = <b>1.73</b>.
 </div>

@@ -743,3 +743,116 @@ def test_counted_list_real_workbook():
     assert len(ls["layout"]["hrows"]) == 2795  # filtered to 9 Sep in Excel: 45 of 2,840 rows visible
     assert ls["rows"][361][:2] == ["9-Sep", "9SH06-WS03"] and ls["rows"][361][3] == "305.00"
     assert sheets[2]["layout"]["grid"] is True and sheets[2]["n_rows"] == 34882
+
+
+# ------------------------------------------------------------------ Inventory Masterlist = tracker's Master sheet
+def _ml_amc_workbook() -> bytes:
+    """CONSOLIDATED like the real AMC file: interval code and days sit unlabelled after Plant Location."""
+    import io
+
+    from openpyxl import Workbook
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "CONSOLIDATED"
+    ws.append(["total 3\n\n#", "Code", "Description", "Sep", "Category", "DECLARED INVENTORY TYPE", "ACTION",
+               "CLASSIFICATION", "AMC", "Material Section", "Plant Location"])
+    ws.append([1, "A-1", "Bolt (AMC name)", 1, "AB", "MTS", "CLOSE CONTROL", "Fast Moving", 124.28, "RAW MAT", 3,
+               "ABMTS", 30])
+    ws.append([2, "ZZ-NOT-IN-ODOO", "Only in AMC", 1, "AC", "MTS", "REGULAR REVIEW", "Medium Moving", 0, "BOX", "1 & 2",
+               "ACMTS", 90])
+    ws.append([3, "a-1", "same code, other family", 1, "AA", "MTS", "X", "Y", 1, "Z", 1, "AAMTS", 30])
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+def _ml_counted_workbook() -> bytes:
+    import io
+    from datetime import datetime
+
+    from openpyxl import Workbook
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "LIST"
+    ws.append(["DATE COUNTED", "RM CODE", "Description", "TOTAL COUNT (WH)", "TOTAL COUNT (PROD)"])
+    ws.append([datetime(2026, 9, 1), "A-1", "Bolt", 999, 999])           # older count: ignored
+    ws.append([datetime(2026, 10, 12), "A-1", "Bolt", 200, None])         # latest date, line 1
+    ws.append([datetime(2026, 10, 12), "a-1", "Bolt", 14.882, 3])         # latest date, line 2 (case ignored)
+    ws.append([datetime(2026, 10, 5), "ZZ-NOT-IN-ODOO", "Only", 10, 0])
+    wb.create_sheet("ODOO inv")
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+def test_masterlist_parsers_follow_the_tracker_formulas():
+    from datetime import date
+
+    from oicas.services import masterlist
+    amc = masterlist.parse_amc(_ml_amc_workbook())
+    assert [a["code"] for a in amc] == ["A-1", "ZZ-NOT-IN-ODOO", "a-1"]  # every AMC row, like the tracker
+    a = amc[0]
+    assert (a["action"], a["classification"], a["amc"], a["material_section"], a["plant_location"], a["interval"],
+            a["interval_days"]) == ("CLOSE CONTROL", "Fast Moving", 124.28, "RAW MAT", "3", "ABMTS", 30)
+    cnt = masterlist.parse_counted(_ml_counted_workbook())
+    assert cnt["a-1"]["counted_date"] == date(2026, 10, 12)  # MAXIFS
+    assert abs(cnt["a-1"]["actual_wh"] - 214.882) < 1e-9 and cnt["a-1"]["actual_prod"] == 3  # SUMIFS on that date
+
+
+def test_masterlist_page_reads_latest_uploads_and_edits_remarks(client):
+    from oicas.db import session_factory
+    from oicas.models import AmcImport, MasterlistRemark, User
+    from oicas.services import amc_import, masterlist
+    from sqlalchemy import select
+    login(client, "manager")  # creates the account on first login
+    with session_factory()() as db:
+        u = db.scalars(select(User).where(User.login == "manager")).first()
+        a = amc_import.create(db, u, _ml_amc_workbook(), "03_AMC.xlsx", "Tester", kind="amc")
+        c = amc_import.create(db, u, _ml_counted_workbook(), "COUNTED LIST.xlsx", "Tester", kind="counted")
+        db.commit()
+        ids = (a.id, c.id)
+    try:
+        with session_factory()() as db:
+            all_rows = masterlist.build(db).rows
+            rows = {r.code: r for r in reversed(all_rows)}  # first row per code
+        assert len(all_rows) == 3 and all_rows[2].counted_date == all_rows[0].counted_date  # counts match by code
+        r = rows["A-1"]
+        assert r.description == "Bolt" and r.uom == "Piece"  # Odoo wins over the AMC description
+        assert (r.action, r.classification, r.amc, r.interval, r.interval_days) == (
+            "CLOSE CONTROL", "Fast Moving", 124.28, "ABMTS", 30)
+        assert str(r.next_count) == "2026-11-11"  # Counted Date + Interval (days)
+        assert abs(r.stock_in_months - (214.882 + 3) / 124.28) < 1e-9
+        assert r.odoo_wh is not None and abs(r.disc_wh - (r.actual_wh - r.odoo_wh)) < 1e-9
+        assert abs(r.disc_prod - (r.actual_prod - r.odoo_prod)) < 1e-9
+        z = rows["ZZ-NOT-IN-ODOO"]
+        assert z.description == "Only in AMC" and z.odoo_wh is None and z.disc_wh is None
+        assert z.stock_in_months is None  # AMC 0 → blank, like IFERROR
+
+        login(client, "manager")
+        page = client.get("/masterlist?q=A-1").text
+        for h in ("Interval (days)", "Unit of Measure", "Counted Date", "Next Count", "Remarks"):
+            assert h in page, h
+        for gone in (">Schedule<", ">Reconciliation<", ">Review<", ">ABC Family<", ">Category<"):
+            assert gone not in page, gone
+        assert "October 12, 2026" in page and "November 11, 2026" in page
+        assert 'hx-post="/masterlist/remark"' in page
+        token = csrf(client, "/masterlist")
+        r = client.post("/masterlist/remark", data={"code": "A-1", "remark": "JIT – check bin 4"},
+                        headers={"X-CSRF-Token": token})
+        assert r.status_code == 200 and "JIT – check bin 4" in r.text
+        assert "JIT – check bin 4" in client.get("/masterlist?q=A-1").text
+        x = client.get("/reports/masterlist/export.xlsx?q=A-1")
+        assert x.status_code == 200 and x.content[:2] == b"PK"
+
+        login(client, "viewer")
+        assert 'hx-post="/masterlist/remark"' not in client.get("/masterlist?q=A-1").text
+        assert client.post("/masterlist/remark", data={"code": "A-1", "remark": "x"},
+                           headers={"X-CSRF-Token": csrf(client, "/masterlist")}).status_code == 403
+    finally:
+        with session_factory()() as db:
+            for i in ids:
+                db.delete(db.get(AmcImport, i))
+            rec = db.get(MasterlistRemark, "A-1")
+            if rec:
+                db.delete(rec)
+            db.commit()

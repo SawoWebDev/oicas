@@ -1,9 +1,14 @@
-<p class="help-lead">Every count entry ever recorded, in any session status. It replaces scrolling through the COUNTED LIST sheet.</p>
+<p class="help-lead">Every count line of the COUNTED LIST workbook uploaded on <span class="ui">Physical Counting</span>. By default the latest upload is shown; pick an older one in the <i>Counted list upload</i> filter.</p>
 <h3>Columns</h3>
-<p>Date · Session · Status (draft / submitted / finalized / cancelled) · Counted by · RM Code · Description · Location · Slot · Round · Qty · UoM · Entry (<i>active</i>, or <i>superseded</i> when corrected or recounted) · Correction reason · Remarks.</p>
+<p>Date (DATE COUNTED) · Counted by (COUNTED BY) · RM Code · Description · Location · Qty · UoM (Odoo) · Remarks.</p>
+<ul>
+  <li><b>Location</b> is the COUNTED LIST column the quantity is in: <i>WH-1 … WH-4</i> or <i>PROD-1 … PROD-4</i>. A LIST line with quantities in two columns shows as two rows.</li>
+  <li><b>UoM</b> is the product's unit of measure in Odoo (refreshed on every Odoo sync). It is blank when the code is not an Odoo product.</li>
+  <li><b>Remarks</b> is the REMARKS column of the COUNTED LIST line.</li>
+</ul>
+<p>A blank count cell is not a count; 0 is a counted zero.</p>
 <h3>Filters</h3>
-<p>From / To (default: last 90 days), search code, session status, counted by. The summary shows the number of entries, active entries, sessions and items.</p>
+<p>Counted list upload, From / To, search code or description, location, counted by. The summary shows count lines, items, counted dates and codes with no Odoo UoM.</p>
 <div class="help-example"><div class="lbl">Example</div>
-  To see everything Giniemark counted in September: From 2026-09-01, To 2026-09-30, Counted by "Giniemark" → <span class="ui">Apply</span> → <span class="ui">Excel</span>.
+  To see everything Giniemark counted in WH-3 in September: From 2026-09-01, To 2026-09-30, Location WH-3, Counted by "Giniemark" → <span class="ui">Apply</span> → <span class="ui">Excel</span>.
 </div>
-<p>Nothing is ever deleted: a correction adds a new entry and marks the old one <i>superseded</i>, with the reason and who did it.</p>

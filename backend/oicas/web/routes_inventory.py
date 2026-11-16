@@ -14,8 +14,9 @@ from ..engine.classification import action_priority
 from ..engine.reconciliation import BUCKETS
 from ..models import (CountEntry, CountPlan, CountPlanItem, CountSession, DiscrepancyNote, DqException, Item,
                       Reconciliation, User)
-from ..services import counting, importers, inventory, rules, sync
-from .common import redirect, render, report_page
+from ..security import has_permission
+from ..services import counting, importers, inventory, masterlist as masterlist_svc, rules, sync
+from .common import cell, redirect, render, report_page
 from .deps import check_csrf, get_db, require
 
 router = APIRouter()
@@ -31,7 +32,37 @@ def _d(v: str | None) -> date | None:
 # ------------------------------------------------------------------ masterlist & items
 @router.get("/masterlist", response_class=HTMLResponse)
 def masterlist(request: Request, db: Session = Depends(get_db), user: User = Depends(require("view"))):
-    return report_page(request, db, "masterlist", "masterlist", "Inventory", "Inventory Masterlist")
+    extra = {"cell": _remark_cell} if has_permission(user, "item.edit") else None
+    return report_page(request, db, "masterlist", "masterlist", "Inventory", "Inventory Masterlist", extra=extra)
+
+
+def _remark_box(code: str, remark: str | None, saved: bool = False) -> str:
+    from markupsafe import Markup, escape
+    mark = '<i class="bi bi-check2 text-success ms-1" title="Saved"></i>' if saved else ""
+    return Markup(f'<form class="ml-remark d-flex align-items-center" hx-post="/masterlist/remark" hx-trigger="change" '
+                  f'hx-swap="outerHTML"><input type="hidden" name="code" value="{escape(code)}">'
+                  f'<input class="form-control form-control-sm" name="remark" maxlength="1000" '
+                  f'value="{escape(remark or "")}" placeholder="Add remark" aria-label="Remark for {escape(code)}">'
+                  f'{mark}</form>')
+
+
+def _remark_cell(row: dict, col) -> str:
+    """Masterlist cells; Remarks is an edit box (saved on change) for users who may edit items."""
+    if col.key == "remark":
+        return _remark_box(row["code"], row.get("remark"))
+    return cell(row, col)
+
+
+@router.post("/masterlist/remark", response_class=HTMLResponse, dependencies=[Depends(check_csrf)])
+def masterlist_remark(code: str = Form(...), remark: str = Form(""), db: Session = Depends(get_db),
+                      user: User = Depends(require("item.edit"))):
+    try:
+        value = masterlist_svc.set_remark(db, user, code, remark)
+    except ValueError as e:
+        db.rollback()
+        return HTMLResponse(str(e), status_code=400)
+    db.commit()
+    return HTMLResponse(_remark_box(code, value, saved=True))
 
 
 @router.get("/items/{code:path}", response_class=HTMLResponse)
@@ -325,7 +356,10 @@ def item_search(q: str = "", db: Session = Depends(get_db), user: User = Depends
 # ------------------------------------------------------------------ count history & reconciliation
 @router.get("/history", response_class=HTMLResponse)
 def history(request: Request, db: Session = Depends(get_db), user: User = Depends(require("view"))):
-    return report_page(request, db, "physical_count", "history", "Inventory", "Count History")
+    return report_page(request, db, "physical_count", "history", "Inventory", "Count History",
+                       {"intro": "Count lines from the latest COUNTED LIST upload on Physical Counting (pick another "
+                                 "upload in the filter). Location is the column the quantity is in; UoM comes from "
+                                 "Odoo; Remarks come from the COUNTED LIST."})
 
 
 @router.get("/reconciliation", response_class=HTMLResponse)

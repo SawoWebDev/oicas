@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 
 from ..engine import classification as cls_mod
 from ..engine.amc import Period, add_months
-from ..models import (AnalysisResult, AnalysisRun, AuditLog, CountEntry, CountPlan, CountPlanItem, CountSession,
+from ..models import (AmcImport, AnalysisResult, AnalysisRun, AuditLog, CountPlan, CountPlanItem,
                       DiscrepancyNote, DqException, Item, Reconciliation, SyncRun, User)
 from . import analysis, dq, inventory, sync
 
@@ -24,7 +24,7 @@ from . import analysis, dq, inventory, sync
 class Column:
     key: str
     label: str
-    kind: str = "text"  # text/int/qty/pct/date/datetime/bool
+    kind: str = "text"  # text/int/qty/pct/date/longdate/datetime/bool
     total: bool = False
 
 
@@ -145,19 +145,52 @@ def _master_meta(ds: inventory.Dataset, db: Session, p: dict) -> dict:
 
 
 # 1 ------------------------------------------------------------------------------------------
+# Same columns, order and sources as the Master sheet of INVENTORY MASTERLIST & CYCLE COUNT TRACKER.xlsx
+MASTERLIST_COLUMNS = [
+    Column("code", "RM Code"), Column("description", "Description"), Column("action", "Action"),
+    Column("classification", "Classification"), Column("amc", "AMC", "qty"),
+    Column("material_section", "Material Section"), Column("plant_location", "Plant Location"),
+    Column("interval", "Interval"), Column("interval_days", "Interval (days)", "int"),
+    Column("uom", "Unit of Measure"), Column("counted_date", "Counted Date", "longdate"),
+    Column("next_count", "Next Count", "longdate"), Column("actual_wh", "Actual Count (WH)", "qty"),
+    Column("actual_prod", "Actual Count (PROD)", "qty"), Column("stock_in_months", "Stock in Months", "qty"),
+    Column("odoo_wh", "Odoo WH", "qty"), Column("odoo_prod", "Odoo Pre-Prod", "qty"),
+    Column("disc_wh", "Discrepancy (WH)", "qty"), Column("disc_prod", "Discrepancy (PROD)", "qty"),
+    Column("remark", "Remarks"),
+]
+
+
+def _ml_opts(attr):
+    def f(db):
+        from . import masterlist
+        return masterlist.options(db, attr)
+    return f
+
+
 @register("masterlist", 1, "Inventory Masterlist",
-          "Item details, classification, AMC, interval, latest physical and Odoo quantities, discrepancies, next count.",
-          [Q_F, CLASS_F, ACTION_F, SECTION_F, FAMILY_F, PLANT_F,
-           Filter("due_status", "Schedule", "select", _opts(["overdue", "due_today", "upcoming", "scheduled", "unscheduled"])),
+          "Same as the Master sheet of the Inventory Masterlist & Cycle Count tracker: item data from the latest "
+          "AMC Import, counts from the latest COUNTED LIST, balances from Odoo.",
+          [Q_F, CLASS_F, ACTION_F, Filter("material_section", "Material section", "select", _ml_opts("material_section")),
+           Filter("plant_location", "Plant location", "select", _ml_opts("plant_location")),
            Filter("counted", "Counted", "select", _opts(["yes", "no"])),
            Filter("discrepancy", "Discrepancy", "select", _opts(["yes", "no"]))])
 def r_masterlist(db: Session, p: dict) -> ReportResult:
-    ds = inventory.build(db)
-    rows = inventory.apply_filters(ds.rows, p)
-    return ReportResult("masterlist", "Inventory Masterlist", MASTER_COLUMNS, [r.as_dict() for r in rows],
+    from . import masterlist
+    ds = masterlist.build(db)
+    rows = masterlist.apply_filters(ds.rows, p)
+    meta = {"filters": {k: v for k, v in p.items() if v not in (None, "")},
+            "latest_odoo_snapshot": ds.snapshot_id,
+            "amc_import": ds.amc_import.number if ds.amc_import else None,
+            "counted_import": ds.counted_import.number if ds.counted_import else None}
+    src = [f"AMC Import #{ds.amc_import.number} ({ds.amc_import.filename})" if ds.amc_import
+           else "no AMC Import uploaded yet (approved analysis run used)",
+           f"Counted list #{ds.counted_import.number} ({ds.counted_import.filename})" if ds.counted_import
+           else "no counted list uploaded yet"]
+    meta["note"] = "Sources: " + " · ".join(src)
+    return ReportResult("masterlist", "Inventory Masterlist", MASTERLIST_COLUMNS, [r.as_dict() for r in rows],
                         [("Items", len(rows), "int"), ("Counted", sum(r.counted for r in rows), "int"),
                          ("With discrepancy", sum(r.counted and r.has_discrepancy for r in rows), "int")],
-                        _master_meta(ds, db, p), "/items/{code}")
+                        meta, "/items/{code}")
 
 
 # 2 ------------------------------------------------------------------------------------------
@@ -197,39 +230,69 @@ def r_count_sheet(db: Session, p: dict) -> ReportResult:
 
 
 # 3 ------------------------------------------------------------------------------------------
+def _counted_upload_opts(db):
+    from . import counted_list
+    return [(u.id, f"#{u.number} {u.filename} ({u.uploaded_at:%Y-%m-%d %H:%M})") for u in counted_list.uploads(db)]
+
+
+COUNT_LOCATIONS = [f"WH-{i}" for i in range(1, 5)] + [f"PROD-{i}" for i in range(1, 5)]
+
+
 @register("physical_count", 3, "Physical Inventory Count Report",
-          "Every count entry with its session, date, location, slot, counter, status and corrections.",
-          [FROM_F, TO_F, Q_F, Filter("status", "Session status", "select",
-                                     _opts(["draft", "submitted", "finalized", "cancelled"])),
+          "Every count line of the uploaded COUNTED LIST workbook: date, counter, location (WH-1..4 / PROD-1..4), "
+          "quantity, Odoo UoM and remarks.",
+          [Filter("upload_id", "Counted list upload (All = latest)", "select", _counted_upload_opts),
+           FROM_F, TO_F, Q_F, Filter("location", "Location", "select", _opts(COUNT_LOCATIONS)),
            Filter("counted_by", "Counted by")])
 def r_physical(db: Session, p: dict) -> ReportResult:
-    start, end = _date_range(p)
-    q = select(CountEntry, CountSession).join(CountSession).where(CountSession.count_date >= start,
-                                                                  CountSession.count_date <= end)
-    if p.get("status"):
-        q = q.where(CountSession.status == p["status"])
-    if p.get("counted_by"):
-        q = q.where(CountSession.counted_by_name.ilike(f"%{p['counted_by']}%"))
-    if p.get("q"):
-        q = q.where(CountEntry.item_code.ilike(f"%{p['q']}%"))
-    desc = dict(db.execute(select(Item.code, Item.description)).all())
-    rows = [{"count_date": s.count_date, "session_id": s.id, "status": s.status, "counted_by": s.counted_by_name,
-             "code": e.item_code, "description": desc.get(e.item_code, ""), "bucket": e.bucket, "slot": e.slot,
-             "round": e.round, "qty": e.qty, "uom": e.uom_name,
-             "state": "superseded" if (e.superseded_by_id or e.superseded_at) else "active",
-             "correction_reason": e.correction_reason, "remarks": e.remarks}
-            for e, s in db.execute(q.order_by(CountSession.count_date.desc(), CountSession.id, CountEntry.id)).all()]
-    active = [r for r in rows if r["state"] == "active"]
-    cols = [Column("count_date", "Date", "date"), Column("session_id", "Session", "int"), Column("status", "Status"),
-            Column("counted_by", "Counted by"), Column("code", "RM Code"), Column("description", "Description"),
-            Column("bucket", "Location"), Column("slot", "Slot"), Column("round", "Round", "int"),
-            Column("qty", "Qty", "qty"), Column("uom", "UoM"), Column("state", "Entry"),
-            Column("correction_reason", "Correction reason"), Column("remarks", "Remarks")]
+    from . import counted_list
+    imp = None
+    if str(p.get("upload_id") or "").isdigit():
+        imp = db.get(AmcImport, int(p["upload_id"]))
+        imp = imp if imp is not None and imp.kind == "counted" else None
+    if imp is None:
+        ups = counted_list.uploads(db)
+        imp = ups[0] if ups else None
+    cols = [Column("count_date", "Date", "date"), Column("counted_by", "Counted by"), Column("code", "RM Code"),
+            Column("description", "Description"), Column("location", "Location"), Column("qty", "Qty", "qty"),
+            Column("uom", "UoM (Odoo)"), Column("remarks", "Remarks")]
+    if imp is None:
+        return ReportResult("physical_count", "Physical Inventory Count Report", cols, [], [("Count lines", 0, "int")],
+                            {"note": "No COUNTED LIST uploaded yet. Upload it on Physical Counting."})
+    start, end = _d(p.get("date_from")), _d(p.get("date_to"))
+    who = (p.get("counted_by") or "").strip().casefold()
+    needle = (p.get("q") or "").strip().casefold()
+    # UoM only from items matched to an Odoo product (set by the Odoo sync), never a workbook-imported UoM
+    items = {c: (d, u if pid is not None else None)
+             for c, d, u, pid in db.execute(select(Item.code, Item.description, Item.uom_name,
+                                                   Item.odoo_product_id)).all()}
+    rows = []
+    for ln in counted_list.lines(imp):
+        if start and (ln.count_date is None or ln.count_date < start):
+            continue
+        if end and (ln.count_date is None or ln.count_date > end):
+            continue
+        if who and who not in ln.counted_by.casefold():
+            continue
+        if p.get("location") and ln.location != p["location"]:
+            continue
+        desc, uom = items.get(ln.code, ("", None))
+        desc = ln.description or desc or ""
+        if needle and needle not in ln.code.casefold() and needle not in desc.casefold():
+            continue
+        rows.append({"count_date": ln.count_date, "counted_by": ln.counted_by, "code": ln.code, "description": desc,
+                     "location": ln.location, "qty": ln.qty, "uom": uom, "remarks": ln.remarks, "row": ln.row})
+    rows.sort(key=lambda r: (r["count_date"] or date.min, -r["row"]), reverse=True)
+    dates = [r["count_date"] for r in rows if r["count_date"]]
     return ReportResult("physical_count", "Physical Inventory Count Report", cols, rows,
-                        [("Entries", len(rows), "int"), ("Active entries", len(active), "int"),
-                         ("Sessions", len({r['session_id'] for r in rows}), "int"),
-                         ("Items", len({r['code'] for r in active}), "int")],
-                        {"period": f"{start} – {end}"}, "/items/{code}")
+                        [("Count lines", len(rows), "int"), ("Items", len({r['code'] for r in rows}), "int"),
+                         ("Counted dates", len(set(dates)), "int"),
+                         ("Not in Odoo (no UoM)", len({r['code'] for r in rows if not r['uom']}), "int")],
+                        {"source": f"COUNTED LIST upload #{imp.number}: {imp.filename} "
+                                   f"(uploaded {imp.uploaded_at:%Y-%m-%d %H:%M} by {imp.uploaded_by})",
+                         "period": f"{min(dates)} – {max(dates)}" if dates else "–",
+                         "note": "Location = the COUNTED LIST column the quantity is in. UoM is the Odoo product UoM."},
+                        "/items/{code}")
 
 
 RECON_COLUMNS = [Column("count_date", "Count date", "date"), Column("code", "RM Code"),
