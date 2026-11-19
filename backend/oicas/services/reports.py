@@ -241,22 +241,20 @@ COUNT_LOCATIONS = [f"WH-{i}" for i in range(1, 5)] + [f"PROD-{i}" for i in range
 @register("physical_count", 3, "Physical Inventory Count Report",
           "Every count line of the uploaded COUNTED LIST workbook: date, counter, location (WH-1..4 / PROD-1..4), "
           "quantity, Odoo UoM and remarks.",
-          [Filter("upload_id", "Counted list upload (All = latest)", "select", _counted_upload_opts),
+          [Filter("upload_id", "Counted list upload (All = every upload)", "select", _counted_upload_opts),
            FROM_F, TO_F, Q_F, Filter("location", "Location", "select", _opts(COUNT_LOCATIONS)),
            Filter("counted_by", "Counted by")])
 def r_physical(db: Session, p: dict) -> ReportResult:
+    from collections import Counter
     from . import counted_list
-    imp = None
+    ups = counted_list.uploads(db)  # newest first
     if str(p.get("upload_id") or "").isdigit():
         imp = db.get(AmcImport, int(p["upload_id"]))
-        imp = imp if imp is not None and imp.kind == "counted" else None
-    if imp is None:
-        ups = counted_list.uploads(db)
-        imp = ups[0] if ups else None
+        ups = [imp] if imp is not None and imp.kind == "counted" else []
     cols = [Column("count_date", "Date", "date"), Column("counted_by", "Counted by"), Column("code", "RM Code"),
             Column("description", "Description"), Column("location", "Location"), Column("qty", "Qty", "qty"),
-            Column("uom", "UoM (Odoo)"), Column("remarks", "Remarks")]
-    if imp is None:
+            Column("uom", "UoM (Odoo)"), Column("remarks", "Remarks"), Column("upload", "Upload")]
+    if not ups:
         return ReportResult("physical_count", "Physical Inventory Count Report", cols, [], [("Count lines", 0, "int")],
                             {"note": "No COUNTED LIST uploaded yet. Upload it on Physical Counting."})
     start, end = _d(p.get("date_from")), _d(p.get("date_to"))
@@ -266,8 +264,22 @@ def r_physical(db: Session, p: dict) -> ReportResult:
     items = {c: (d, u if pid is not None else None)
              for c, d, u, pid in db.execute(select(Item.code, Item.description, Item.uom_name,
                                                    Item.odoo_product_id)).all()}
+    # Merge every upload, newest first. A COUNTED LIST workbook is usually re-uploaded with earlier lines still in
+    # it, so a line already taken from a newer upload is not repeated; only the extra occurrences an older upload
+    # holds (e.g. lines since deleted from the workbook) are added. Repeats inside one upload are all kept.
+    merged: list[tuple[AmcImport, counted_list.CountLine]] = []
+    taken: Counter = Counter()
+    for imp in ups:
+        seen: Counter = Counter()
+        for ln in counted_list.lines(imp):
+            key = (ln.count_date, ln.counted_by, ln.code, ln.location, ln.qty, ln.remarks)
+            seen[key] += 1
+            if seen[key] > taken[key]:
+                merged.append((imp, ln))
+        for key, n in seen.items():
+            taken[key] = max(taken[key], n)
     rows = []
-    for ln in counted_list.lines(imp):
+    for imp, ln in merged:
         if start and (ln.count_date is None or ln.count_date < start):
             continue
         if end and (ln.count_date is None or ln.count_date > end):
@@ -281,15 +293,17 @@ def r_physical(db: Session, p: dict) -> ReportResult:
         if needle and needle not in ln.code.casefold() and needle not in desc.casefold():
             continue
         rows.append({"count_date": ln.count_date, "counted_by": ln.counted_by, "code": ln.code, "description": desc,
-                     "location": ln.location, "qty": ln.qty, "uom": uom, "remarks": ln.remarks, "row": ln.row})
-    rows.sort(key=lambda r: (r["count_date"] or date.min, -r["row"]), reverse=True)
+                     "location": ln.location, "qty": ln.qty, "uom": uom, "remarks": ln.remarks, "row": ln.row,
+                     "upload": f"#{imp.number}", "upload_id": imp.id})
+    rows.sort(key=lambda r: (r["count_date"] or date.min, r["upload_id"], -r["row"]), reverse=True)
     dates = [r["count_date"] for r in rows if r["count_date"]]
     return ReportResult("physical_count", "Physical Inventory Count Report", cols, rows,
                         [("Count lines", len(rows), "int"), ("Items", len({r['code'] for r in rows}), "int"),
                          ("Counted dates", len(set(dates)), "int"),
                          ("Not in Odoo (no UoM)", len({r['code'] for r in rows if not r['uom']}), "int")],
-                        {"source": f"COUNTED LIST upload #{imp.number}: {imp.filename} "
-                                   f"(uploaded {imp.uploaded_at:%Y-%m-%d %H:%M} by {imp.uploaded_by})",
+                        {"source": (f"COUNTED LIST upload #{ups[0].number}: {ups[0].filename} "
+                                    f"(uploaded {ups[0].uploaded_at:%Y-%m-%d %H:%M} by {ups[0].uploaded_by})"
+                                    if len(ups) == 1 else f"All {len(ups)} COUNTED LIST uploads"),
                          "period": f"{min(dates)} – {max(dates)}" if dates else "–",
                          "note": "Location = the COUNTED LIST column the quantity is in. UoM is the Odoo product UoM."},
                         "/items/{code}")

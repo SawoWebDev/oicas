@@ -357,8 +357,8 @@ def item_search(q: str = "", db: Session = Depends(get_db), user: User = Depends
 @router.get("/history", response_class=HTMLResponse)
 def history(request: Request, db: Session = Depends(get_db), user: User = Depends(require("view"))):
     return report_page(request, db, "physical_count", "history", "Inventory", "Count History",
-                       {"intro": "Count lines from the latest COUNTED LIST upload on Physical Counting (pick another "
-                                 "upload in the filter). Location is the column the quantity is in; UoM comes from "
+                       {"intro": "Count lines from every COUNTED LIST upload on Physical Counting (pick one upload "
+                                 "in the filter to see only that file). Location is the column the quantity is in; UoM comes from "
                                  "Odoo; Remarks come from the COUNTED LIST."})
 
 

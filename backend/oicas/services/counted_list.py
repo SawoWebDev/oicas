@@ -32,7 +32,7 @@ class CountLine:
 
 
 _CACHE: dict[str, list[CountLine]] = {}
-_CACHE_MAX = 4
+_CACHE_MAX = 32  # Count History reads every upload at once
 
 
 def _norm(h) -> str:
