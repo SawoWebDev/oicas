@@ -76,7 +76,7 @@ def format_date(v: date, number_format: str | None) -> str | None:
         elif k == "mmm":
             out.append(dt.strftime("%b"))
         elif k == "mmmm":
-            out.append(dt.strftime("%B"))
+            out.append(dt.strftime("%b"))
         elif k == "mmmmm":
             out.append(dt.strftime("%b")[0])
         elif k == "yyyy":

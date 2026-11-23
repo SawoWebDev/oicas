@@ -1,6 +1,6 @@
 {% macro sort_th(col, query, request) -%}
   {% set cur = request.query_params.get('sort') %}{% set desc = request.query_params.get('dir') == 'desc' %}
-  <th class="{% if col.kind in ('qty','int','pct') %}text-end{% endif %}">
+  <th class="{% if col.kind in ('qty','int','pct') %}text-end{% endif %}{% if col.key == 'description' %} desc-cell{% endif %}">
     <a class="sort-link {% if cur == col.key %}active{% endif %}" href="{{ query(sort=col.key, dir=('asc' if cur == col.key and desc else 'desc') if cur == col.key else 'asc', page=None) }}">
       {{ col.label }} <i class="bi {% if cur == col.key %}{{ 'bi-caret-down-fill' if desc else 'bi-caret-up-fill' }}{% else %}bi-chevron-expand{% endif %}"></i></a>
   </th>
@@ -56,7 +56,7 @@
         <tr>
           {% if selectable %}<td><input class="form-check-input row-check" type="checkbox" name="codes" value="{{ row.code }}" form="plan-form"></td>{% endif %}
           {% for c in res.columns %}
-            <td class="{% if c.kind in ('qty','int','pct') %}text-end{% endif %}">
+            <td class="{% if c.kind in ('qty','int','pct') %}text-end{% endif %}{% if c.key == 'description' %} desc-cell{% endif %}">
               {% if loop.first and res.link %}<a class="row-link" href="{{ res.link.format(**row) }}">{{ cell(row, c) }}</a>{% else %}{{ cell(row, c) }}{% endif %}
             </td>
           {% endfor %}

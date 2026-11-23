@@ -44,8 +44,8 @@ def fmt(value, kind: str) -> str:
         return f"{int(value):,}"
     if kind == "date":
         return value.strftime("%Y-%m-%d") if isinstance(value, (date, datetime)) else str(value)
-    if kind == "longdate":  # September 01, 2026
-        return value.strftime("%B %d, %Y") if isinstance(value, (date, datetime)) else str(value)
+    if kind == "longdate":  # Sep 01, 2026
+        return value.strftime("%b %d, %Y") if isinstance(value, (date, datetime)) else str(value)
     if kind == "datetime":
         return value.astimezone().strftime("%Y-%m-%d %H:%M") if isinstance(value, datetime) else str(value)
     if isinstance(value, bool):

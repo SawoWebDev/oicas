@@ -43,7 +43,8 @@ html { zoom: var(--ui-zoom); }
 .nav-section { margin-top: 12px; }
 .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .num.neg { color: var(--brand); }
-.table-soft td.num-cell, .table-soft th.num-cell { text-align: right; }
+.table-soft td.desc-cell, .table-soft th.desc-cell { min-width: 360px; white-space: nowrap; }  /* wide enough that a description stays on one line */
+.table-soft td.num-cell,.table-soft th.num-cell { text-align: right; }
 .table-soft td a.row-link { color: var(--text); font-weight: 600; text-decoration: none; white-space: nowrap; }
 .table-soft td a.row-link:hover { color: var(--brand); }
 .env-banner { background: #fff8db; border: 1px solid #f3dc8a; color: #7a5b00; border-radius: 10px; padding: 8px 14px;
