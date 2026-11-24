@@ -2,6 +2,7 @@
 and the count workflow works end to end through the UI."""
 from __future__ import annotations
 
+import io
 import re
 from datetime import date
 
@@ -855,4 +856,138 @@ def test_masterlist_page_reads_latest_uploads_and_edits_remarks(client):
             rec = db.get(MasterlistRemark, "A-1")
             if rec:
                 db.delete(rec)
+            db.commit()
+
+
+def test_cycle_count_planning_monthly_snapshots(client):
+    from oicas.db import session_factory
+    from oicas.models import AmcImport, CycleCountEntry, User
+    from oicas.services import amc_import
+    from sqlalchemy import select
+    login(client, "manager")
+    with session_factory()() as db:
+        u = db.scalars(select(User).where(User.login == "manager")).first()
+        a = amc_import.create(db, u, _ml_amc_workbook(), "03_AMC.xlsx", "Tester", kind="amc")
+        c = amc_import.create(db, u, _ml_counted_workbook(), "COUNTED LIST.xlsx", "Tester", kind="counted")
+        db.commit()
+        ids = (a.id, c.id)
+    try:
+        # nothing is shown until a month imports the masterlist
+        empty = client.get("/planning?view=calendar&month=2026-11").text
+        assert "Import Inventory Masterlist" in empty and 'href="/items/A-1"' not in empty
+        token = csrf(client, "/planning?view=list")
+        r = client.post("/planning/import", data={"csrf": token, "month": "2026-11", "view": "calendar"},
+                        follow_redirects=False)
+        assert r.status_code == 303 and "month=2026-11" in r.headers["location"]
+        # A-1: counted 2026-10-12 + 30 days = 2026-11-11
+        cal = client.get("/planning?view=calendar&month=2026-11").text
+        assert "November 2026" in cal and 'href="/items/A-1"' in cal and "cp-badge" in cal
+        assert "?view=calendar&month=2026-10" in cal and "?view=calendar&month=2026-12" in cal  # month arrows
+        assert 'href="/items/A-1"' not in client.get("/planning?view=calendar&month=2026-12").text  # December not imported
+        lst = client.get("/planning?view=list&month=2026-11").text
+        for h in ("Original Date", "Adjusted Date", "Description", "Classification", "Plant Location", "In Charge", "Last Edited"):
+            assert h in lst, h
+        assert "(Auto)" not in lst and 'id="cp-code"' in lst and "Nov 11, 2026" in lst
+        assert client.get("/planning/lookup?month=2026-11&code=a-1").json()["description"] == "Bolt"
+        assert client.get("/planning/lookup?month=2026-12&code=a-1").json() == {"found": False}
+
+        r = client.post("/planning/adjust", data={"csrf": token, "month": "2026-11", "code": "A-1",
+                                                  "adjusted_date": "2026-12-05"}, follow_redirects=False)
+        assert r.status_code == 303
+        r = client.post("/planning/save", data={"csrf": token, "month": "2026-11", "code": ["A-1"],
+                                                "adjusted_date": ["2026-12-05"], "in_charge": ["Christine"]},
+                        follow_redirects=False)
+        assert r.status_code == 303
+        page = client.get("/planning?view=list&month=2026-11").text
+        assert "Christine" in page and "Demo Inventory Manager" in page and "2026-12-05" in page
+        r = client.post("/planning/adjust", data={"csrf": token, "month": "2026-11", "code": "NOPE",
+                                                  "adjusted_date": "2026-12-05"}, follow_redirects=False)
+        assert r.status_code == 303
+
+        # December is isolated: importing it pulls the masterlist as it is now, without November's edits
+        client.post("/planning/import", data={"csrf": token, "month": "2026-12", "view": "list"})
+        dec = client.get("/planning?view=list&month=2026-12").text
+        assert "Nov 11, 2026" in dec and "Christine" not in dec
+        # re-importing November keeps what was edited there
+        client.post("/planning/import", data={"csrf": token, "month": "2026-11", "view": "list"})
+        assert "Christine" in client.get("/planning?view=list&month=2026-11").text
+
+        x = client.get("/planning/export.xlsx?month=2026-11")
+        assert x.status_code == 200 and x.content[:2] == b"PK"
+        from openpyxl import load_workbook
+        ws = load_workbook(io.BytesIO(x.content)).active
+        flat = [c.value for row in ws.iter_rows() for c in row]
+        assert "Original Date" in flat and "A-1" in flat and "Christine" in flat and "Last Edited" in flat
+
+        login(client, "viewer")
+        v = client.get("/planning?view=list&month=2026-11").text
+        assert 'id="cp-entry"' not in v and "Import Inventory Masterlist" not in v and "Christine" in v
+    finally:
+        with session_factory()() as db:
+            for row in db.scalars(select(CycleCountEntry)):
+                db.delete(row)
+            for i in ids:
+                imp = db.get(AmcImport, i)
+                if imp:
+                    db.delete(imp)
+            db.commit()
+
+
+def test_cycle_count_import_schedule_csv_and_xlsx(client):
+    from oicas.db import session_factory
+    from oicas.models import AmcImport, CycleCountEntry, User
+    from oicas.services import amc_import
+    from sqlalchemy import select
+    login(client, "manager")
+    with session_factory()() as db:
+        u = db.scalars(select(User).where(User.login == "manager")).first()
+        a = amc_import.create(db, u, _ml_amc_workbook(), "03_AMC.xlsx", "Tester", kind="amc")
+        db.commit()
+        ids = (a.id,)
+    csv_text = ("OCTOBER2026,,,,,,,,DATE INPUT,RM CODE,DESCRIPTION,# days,CALENDAR,REMARK,,\n"
+                ",,,,,,,,Sep - 13 - Sun,A-1,Bolt,18,Oct - 01 - Thu,,A-1,Fast Moving\n"
+                ",,,,,,,,Sep - 13 - Sun,A-2,Nut,19,Oct - 02 - Fri,COUNTED,#N/A,Medium Moving\n"
+                ",,,,,,,,Sep - 13 - Sun,X-UNKNOWN,Not in masterlist,20,Oct - 03 - Sat,,#N/A,Fast Moving\n"
+                ",,,,,,,,Sep - 11 - Fri,A-1,Bolt,,Sep - 11 - Fri,counted,A-1,Fast Moving\n").replace("\\n", "\n")
+    try:
+        token = csrf(client, "/planning?view=list&month=2026-10")
+        r = client.post("/planning/import-schedule", data={"csrf": token, "month": "2026-10", "view": "calendar"},
+                        files={"file": ("sched.csv", csv_text.encode("cp1252"), "text/csv")}, follow_redirects=False)
+        assert r.status_code == 303, r.text
+        from itsdangerous import URLSafeSerializer
+        from oicas.config import get_settings
+        flash_msg = URLSafeSerializer(get_settings().secret_key, salt="flash").loads(r.cookies.get("oicas_flash") or client.cookies.get("oicas_flash"))
+        assert flash_msg[0] == "success", flash_msg
+        cal = client.get("/planning?view=calendar&month=2026-10").text
+        for code in ("a-1", "A-2", "X-UNKNOWN"):  # a-1 keeps the Masterlist's spelling
+            assert f'href="/items/{code}"' in cal, code
+        assert "cp-badge" in cal and "October 2026" in cal
+        with session_factory()() as db:
+            rows = {e.code: e for e in db.scalars(select(CycleCountEntry).where(CycleCountEntry.month == "2026-10"))}
+            assert str(rows["a-1"].original_date) == "2026-10-01"  # repeated code keeps its latest date
+            assert str(rows["X-UNKNOWN"].original_date) == "2026-10-03" and rows["a-1"].description == "Bolt"
+        # an xlsx SCHEDULE sheet works too
+        from openpyxl import Workbook
+        wb = Workbook(); ws = wb.active; ws.title = "SCHEDULE"
+        ws.append(["DATE INPUT", "RM CODE", "DESCRIPTION", "# days", "CALENDAR"])
+        ws.append(["Sep - 13 - Sun", "A-2", "Nut", 22, "Oct - 05 - Mon"])
+        buf = io.BytesIO(); wb.save(buf)
+        r = client.post("/planning/import-schedule", data={"csrf": token, "month": "2026-11", "view": "list"},
+                        files={"file": ("sched.xlsx", buf.getvalue(), "application/octet-stream")}, follow_redirects=False)
+        assert r.status_code == 303
+        assert "A-2" in client.get("/planning?view=list&month=2026-11").text
+        assert 'href="/items/a-1"' not in client.get("/planning?view=calendar&month=2026-11").text  # months stay separate
+        # a file without the right columns is refused with a message, nothing changes
+        r = client.post("/planning/import-schedule", data={"csrf": token, "month": "2026-10", "view": "list"},
+                        files={"file": ("bad.csv", b"a,b\n1,2\n", "text/csv")}, follow_redirects=False)
+        assert r.status_code == 303
+        assert 'href="/items/a-1"' in client.get("/planning?view=calendar&month=2026-10").text
+    finally:
+        with session_factory()() as db:
+            for row in db.scalars(select(CycleCountEntry)):
+                db.delete(row)
+            for i in ids:
+                imp = db.get(AmcImport, i)
+                if imp:
+                    db.delete(imp)
             db.commit()

@@ -147,7 +147,7 @@ def _master_meta(ds: inventory.Dataset, db: Session, p: dict) -> dict:
 # 1 ------------------------------------------------------------------------------------------
 # Same columns, order and sources as the Master sheet of INVENTORY MASTERLIST & CYCLE COUNT TRACKER.xlsx
 MASTERLIST_COLUMNS = [
-    Column("code", "RM Code"), Column("description", "Description"), Column("action", "Action"),
+    Column("code", "Code"), Column("description", "Description"), Column("action", "Action"),
     Column("classification", "Classification"), Column("amc", "AMC", "qty"),
     Column("material_section", "Material Section"), Column("plant_location", "Plant Location"),
     Column("interval", "Interval"), Column("interval_days", "Interval (days)", "int"),

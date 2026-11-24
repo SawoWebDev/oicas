@@ -2,5 +2,5 @@
 {% from "_macros.html" import report_card %}
 {% block content %}
 {% if intro %}<p class="muted small mb-3">{{ intro }}</p>{% else %}<p class="muted small mb-3">{{ rdef.description }}</p>{% endif %}
-{{ report_card(res, pg, filters, params, export_q, query, request, cell, fmt) }}
+{{ report_card(res, pg, filters, params, export_q, query, request, cell, fmt, freeze=(2 if res.key == 'masterlist' else 0)) }}
 {% endblock %}

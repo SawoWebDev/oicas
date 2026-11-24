@@ -5,7 +5,7 @@ import io
 from datetime import date
 
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
-from fastapi.responses import HTMLResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -15,7 +15,7 @@ from ..engine.reconciliation import BUCKETS
 from ..models import (CountEntry, CountPlan, CountPlanItem, CountSession, DiscrepancyNote, DqException, Item,
                       Reconciliation, User)
 from ..security import has_permission
-from ..services import counting, importers, inventory, masterlist as masterlist_svc, rules, sync
+from ..services import counting, cyclecount, importers, inventory, masterlist as masterlist_svc, rules, sync
 from .common import cell, redirect, render, report_page
 from .deps import check_csrf, get_db, require
 
@@ -110,15 +110,154 @@ def item_update(code: str, request: Request, material_section: str = Form(""), a
 
 # ------------------------------------------------------------------ planning
 @router.get("/planning", response_class=HTMLResponse)
-def planning(request: Request, db: Session = Depends(get_db), user: User = Depends(require("view"))):
-    plans = db.scalars(select(CountPlan).order_by(CountPlan.status != "open", CountPlan.id.desc()).limit(30)).all()
-    counts = dict(db.execute(select(CountPlanItem.plan_id, func.count()).group_by(CountPlanItem.plan_id)).all())
-    done = dict(db.execute(select(CountPlanItem.plan_id, func.count()).where(CountPlanItem.status == "counted")
-                           .group_by(CountPlanItem.plan_id)).all())
-    users = db.scalars(select(User).where(User.active.is_(True), User.role != "viewer").order_by(User.name)).all()
-    return report_page(request, db, "schedule", "planning", "Inventory", "Cycle Count Planning",
-                       {"plans": plans, "plan_counts": counts, "plan_done": done, "users": users,
-                        "selectable": True}, template="planning.html")
+def planning(request: Request, view: str = "calendar", month: str = "", q: str = "", db: Session = Depends(get_db),
+             user: User = Depends(require("view"))):
+    """Cycle Count Planning. Each month is its own saved copy of the Inventory Masterlist (see Import)."""
+    view = "list" if view == "list" else "calendar"
+    today = date.today()
+    y, m = cyclecount.parse_month(month, today)
+    key = cyclecount.month_key(y, m)
+    items = cyclecount.entries(db, key)
+    ctx = {"view": view, "y": y, "m": m, "q": q.strip(), "total": len(items), "month_start": date(y, m, 1),
+           "month_key": key, "today_month": today.strftime("%Y-%m"),
+           "prev_month": cyclecount.month_key(*cyclecount.shift(y, m, -1)),
+           "next_month": cyclecount.month_key(*cyclecount.shift(y, m, 1)),
+           "imported_at": cyclecount.last_import(db, key)}
+    if view == "calendar":
+        by_day: dict[date, list] = {}
+        for e in items:
+            by_day.setdefault(e.date, []).append(e)
+        ctx.update(weeks=cyclecount.month_weeks(y, m), by_day=by_day,
+                   month_count=sum(1 for e in items if (e.date.year, e.date.month) == (y, m)))
+    else:
+        ctx.update(rows=_planning_rows(items, q))
+    return render(request, db, "planning.html", active="planning", kicker="Inventory", title="Cycle Count Planning", **ctx)
+
+
+def _planning_rows(items, q: str):
+    needle = q.strip().casefold()
+    if not needle:
+        return items
+    return [e for e in items if needle in e.code.casefold() or needle in (e.description or "").casefold()]
+
+
+@router.post("/planning/import", dependencies=[Depends(check_csrf)])
+def planning_import(month: str = Form(...), view: str = Form("calendar"), db: Session = Depends(get_db),
+                    user: User = Depends(require("plan.manage"))):
+    """Import Inventory Masterlist: copy what the masterlist holds now into this month."""
+    y, m = cyclecount.parse_month(month, date.today())
+    key = cyclecount.month_key(y, m)
+    res = cyclecount.import_masterlist(db, user, key)
+    db.commit()
+    back = f"/planning?view={'list' if view == 'list' else 'calendar'}&month={key}"
+    if not res["total"] and not res["removed"]:
+        return redirect(back, "The Inventory Masterlist has no code with a Next Count to import.", "warning")
+    return redirect(back, f"Imported the Inventory Masterlist into {date(y, m, 1):%B %Y}: {res['added']} added, "
+                          f"{res['updated']} updated, {res['removed']} removed ({res['total']} codes).")
+
+
+@router.post("/planning/import-schedule", dependencies=[Depends(check_csrf)])
+async def planning_import_schedule(month: str = Form(...), view: str = Form("calendar"), file: UploadFile = File(...),
+                                   db: Session = Depends(get_db), user: User = Depends(require("plan.manage"))):
+    """Import schedule: the SCHEDULE sheet (xlsx or csv) becomes this month's list, CALENDAR column = date."""
+    y, m = cyclecount.parse_month(month, date.today())
+    key = cyclecount.month_key(y, m)
+    back = f"/planning?view={'list' if view == 'list' else 'calendar'}&month={key}"
+    data = await file.read()
+    if len(data) > 25 * 1024 * 1024:
+        return redirect(back, "File too large (max 25 MB).", "danger")
+    try:
+        parsed = cyclecount.parse_schedule(data, file.filename or "schedule.csv", date(y, m, 15))
+    except Exception as e:  # noqa: BLE001 - malformed upload
+        return redirect(back, f"Could not read the schedule: {e}", "danger")
+    if not parsed["rows"]:
+        return redirect(back, "No rows with a code and a CALENDAR date were found.", "danger")
+    res = cyclecount.import_schedule(db, user, key, parsed["rows"])
+    db.commit()
+    extra = []
+    if res["not_in_masterlist"]:
+        extra.append(f"{res['not_in_masterlist']} not in the Inventory Masterlist")
+    if parsed["duplicates"]:
+        extra.append(f"{parsed['duplicates']} repeated code(s) kept on their latest date")
+    if parsed["skipped"]:
+        extra.append(f"{parsed['skipped']} row(s) without a date skipped")
+    msg = (f"Imported the schedule into {date(y, m, 1):%B %Y}: {res['total']} codes ({res['added']} added, "
+           f"{res['updated']} updated, {res['removed']} removed)")
+    return redirect(back, msg + (f". {'; '.join(extra)}." if extra else "."))
+
+
+@router.get("/planning/lookup")
+def planning_lookup(code: str = "", month: str = "", db: Session = Depends(get_db),
+                    user: User = Depends(require("view"))):
+    y, m = cyclecount.parse_month(month, date.today())
+    e = cyclecount.find(db, cyclecount.month_key(y, m), code)
+    if e is None:
+        return JSONResponse({"found": False})
+    return JSONResponse({"found": True, "code": e.code, "description": e.description or "",
+                         "classification": e.classification or "", "plant_location": e.plant_location or "",
+                         "original_date": e.original_date.isoformat(),
+                         "adjusted_date": e.adjusted_date.isoformat() if e.adjusted_date else "",
+                         "in_charge": e.in_charge or ""})
+
+
+@router.post("/planning/adjust", dependencies=[Depends(check_csrf)])
+def planning_adjust(code: str = Form(...), month: str = Form(...), adjusted_date: str = Form(...),
+                    db: Session = Depends(get_db), user: User = Depends(require("plan.manage"))):
+    """The entry row at the top of the list: set the Adjusted Date of one code in this month."""
+    y, m = cyclecount.parse_month(month, date.today())
+    key = cyclecount.month_key(y, m)
+    try:
+        d = _d(adjusted_date)
+        if d is None:
+            raise ValueError("Adjusted date is required")
+        e = cyclecount.set_adjustment(db, user, key, code, adjusted_date=d)
+    except ValueError as err:
+        db.rollback()
+        return redirect(f"/planning?view=list&month={key}", str(err), "danger")
+    db.commit()
+    return redirect(f"/planning?view=list&month={key}", f"{e.code} scheduled on {e.date.strftime('%b %d, %Y')}.")
+
+
+@router.post("/planning/save", dependencies=[Depends(check_csrf)])
+async def planning_save(request: Request, db: Session = Depends(get_db), user: User = Depends(require("plan.manage"))):
+    """Save button under the list: every edited row (code, adjusted_date, in_charge) of the month in one go."""
+    form = await request.form()
+    y, m = cyclecount.parse_month(form.get("month"), date.today())
+    key = cyclecount.month_key(y, m)
+    back = form.get("back") or f"/planning?view=list&month={key}"
+    if not back.startswith("/planning") or back.startswith("//"):
+        back = f"/planning?view=list&month={key}"
+    codes, dates, people = form.getlist("code"), form.getlist("adjusted_date"), form.getlist("in_charge")
+    if not (len(codes) == len(dates) == len(people)):
+        return redirect(back, "The changes could not be read. Reload the page and try again.", "danger")
+    try:
+        for c, dt, who in zip(codes, dates, people):
+            d = _d(dt)
+            if dt.strip() and d is None:
+                raise ValueError(f"{c}: adjusted date is not a valid date")
+            cyclecount.set_adjustment(db, user, key, c, adjusted_date=d, in_charge=who)
+    except ValueError as err:
+        db.rollback()
+        return redirect(back, str(err), "danger")
+    db.commit()
+    return redirect(back, f"Saved {len(codes)} row(s).")
+
+
+@router.get("/planning/export.xlsx")
+def planning_export(month: str = "", q: str = "", db: Session = Depends(get_db), user: User = Depends(require("view"))):
+    from ..services import exports
+    from ..services.reports import Column, ReportResult
+    y, m = cyclecount.parse_month(month, date.today())
+    key = cyclecount.month_key(y, m)
+    rows = _planning_rows(cyclecount.entries(db, key), q)
+    cols = [Column("original_date", "Original Date", "longdate"), Column("code", "Code"),
+            Column("adjusted_date", "Adjusted Date", "longdate"), Column("description", "Description"),
+            Column("classification", "Classification"), Column("plant_location", "Plant Location"),
+            Column("in_charge", "In Charge"), Column("last_edit", "Last Edited")]
+    res = ReportResult("cycle_count_planning", "Cycle Count Planning", cols, [e.as_dict() for e in rows],
+                       meta={"filters": {"month": date(y, m, 1).strftime("%B %Y"), **({"q": q} if q else {})}})
+    return Response(exports.to_xlsx(res), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    headers={"Content-Disposition": f'attachment; filename="cycle_count_{key}.xlsx"'})
 
 
 @router.post("/planning/plans", dependencies=[Depends(check_csrf)])

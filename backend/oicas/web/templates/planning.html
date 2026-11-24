@@ -1,49 +1,110 @@
 {% extends "base.html" %}
-{% from "_macros.html" import report_card %}
 {% block content %}
-<div class="row g-3 mb-3">
-  <div class="col-xl-8">
-    <div class="card-soft h-100">
-      <div class="card-head"><h2>Count plans</h2></div>
-      <div class="table-responsive"><table class="table table-soft table-compact">
-        <thead><tr><th>Plan</th><th>Date</th><th>Due</th><th>Status</th><th style="min-width:140px">Progress</th><th class="text-end"></th></tr></thead>
-        <tbody>{% for p in plans %}
-          {% set n = plan_counts.get(p.id, 0) %}{% set d = plan_done.get(p.id, 0) %}
-          <tr><td class="fw-semibold">#{{ p.id }} {{ p.name }}</td><td>{{ fmt(p.plan_date, 'date') }}</td><td>{{ fmt(p.due_date, 'date') }}</td><td>{{ pill(p.status) }}</td>
-            <td><div class="d-flex align-items-center gap-2"><div class="progress flex-grow-1"><div class="progress-bar {% if d == n and n %}bg-done{% endif %}" style="width: {{ (100 * d / n) if n else 0 }}%"></div></div><span class="small-note">{{ d }}/{{ n }}</span></div></td>
-            <td class="text-end"><a class="btn btn-outline-primary btn-xs" href="/planning/plans/{{ p.id }}">Open</a></td></tr>
-        {% else %}<tr><td colspan="6" class="muted text-center py-4">No count plans yet.</td></tr>{% endfor %}</tbody>
-      </table></div>
+{% set editable = can('plan.manage') %}
+<div class="card-soft cp-card">
+  <div class="card-head cp-head">
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+      <a class="btn btn-soft btn-sm cp-nav" href="?view={{ view }}&month={{ prev_month }}{% if q %}&q={{ q|urlencode }}{% endif %}" title="Previous month" aria-label="Previous month"><i class="bi bi-chevron-left"></i></a>
+      <h2 class="cp-month">{{ month_start.strftime('%B %Y') }}</h2>
+      <a class="btn btn-soft btn-sm cp-nav" href="?view={{ view }}&month={{ next_month }}{% if q %}&q={{ q|urlencode }}{% endif %}" title="Next month" aria-label="Next month"><i class="bi bi-chevron-right"></i></a>
+      {% if month_key != today_month %}<a class="btn btn-link btn-sm" href="?view={{ view }}&month={{ today_month }}">Today</a>{% endif %}
     </div>
-  </div>
-  <div class="col-xl-4">
-    <div class="card-soft h-100">
-      <div class="card-head"><h2>New count plan</h2></div>
-      <div class="card-body-soft">
-        {% if can('plan.manage') %}
-        <form method="post" action="/planning/plans" id="plan-form">
-          <input type="hidden" name="csrf" value="{{ csrf }}">
-          <div class="mb-2"><label class="form-label small">Name</label><input class="form-control form-control-sm" name="name" placeholder="Week {{ today.isocalendar()[1] }} cycle count"></div>
-          <div class="row g-2 mb-2">
-            <div class="col"><label class="form-label small">Plan date</label><input class="form-control form-control-sm" type="date" name="plan_date" value="{{ today.isoformat() }}"></div>
-            <div class="col"><label class="form-label small">Due date</label><input class="form-control form-control-sm" type="date" name="due_date"></div>
-          </div>
-          <div class="mb-2"><label class="form-label small">Items</label>
-            <select class="form-select form-select-sm" name="mode">
-              <option value="due">All overdue / due today</option>
-              <option value="due_upcoming">Overdue, due and upcoming (7 days)</option>
-              <option value="selected">Only the items ticked in the schedule below</option>
-            </select></div>
-          <div class="mb-2"><label class="form-label small">Plant location (optional)</label><input class="form-control form-control-sm" name="plant_location" placeholder="e.g. 3"></div>
-          <div class="mb-3"><label class="form-label small">Assign to</label><select class="form-select form-select-sm" name="assignee_id"><option value="">Unassigned</option>
-            {% for u in users %}<option value="{{ u.id }}">{{ u.name or u.login }} ({{ u.role }})</option>{% endfor %}</select></div>
-          <button class="btn btn-primary btn-sm w-100"><i class="bi bi-plus-lg"></i> Create plan</button>
-          <div class="small-note mt-2">Items are prioritised by action (Close Control first) and days overdue. Never-counted items are due now (rule set: never counted = due now).</div>
-        </form>
-        {% else %}<div class="muted small">Only managers can create count plans.</div>{% endif %}
+    <div class="d-flex align-items-center gap-2 flex-wrap no-print">
+      {% if editable %}
+      <form method="post" action="/planning/import" class="m-0"{% if total %} data-confirm="Import the Inventory Masterlist into {{ month_start.strftime('%B %Y') }} again? Codes already here keep their Adjusted Date and In Charge; the rest is refreshed from the masterlist."{% endif %}>
+        <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="month" value="{{ month_key }}"><input type="hidden" name="view" value="{{ view }}">
+        <button class="btn btn-primary btn-sm"><i class="bi bi-cloud-download"></i> Import Inventory Masterlist</button>
+      </form>
+      {% endif %}
+      <form method="post" action="/planning/import-schedule" enctype="multipart/form-data" class="m-0" id="cp-sched-form"{% if total %} data-confirm="Import a schedule file into {{ month_start.strftime('%B %Y') }}? The codes and dates in the file replace this month's list (rows you edited here are kept)."{% endif %}>
+        <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="month" value="{{ month_key }}"><input type="hidden" name="view" value="{{ view }}">
+        <input type="file" name="file" id="cp-sched-file" accept=".csv,.xlsx,.xlsm" hidden>
+        <button type="button" class="btn btn-soft btn-sm" id="cp-sched-btn" title="Upload the SCHEDULE sheet (CSV or Excel): RM CODE and CALENDAR"><i class="bi bi-file-earmark-arrow-up"></i> Import schedule</button>
+      </form>
+      <div class="btn-group" role="group" aria-label="View">
+        <a class="btn btn-sm {{ 'btn-primary' if view == 'calendar' else 'btn-soft' }}" href="?view=calendar&month={{ month_key }}"><i class="bi bi-calendar3"></i> Calendar</a>
+        <a class="btn btn-sm {{ 'btn-primary' if view == 'list' else 'btn-soft' }}" href="?view=list&month={{ month_key }}"><i class="bi bi-list-ul"></i> List</a>
       </div>
+      {% if view == 'list' and total %}<a class="btn btn-soft btn-sm" href="/planning/export.xlsx?month={{ month_key }}{% if q %}&q={{ q|urlencode }}{% endif %}"><i class="bi bi-file-earmark-excel"></i> Excel</a>{% endif %}
     </div>
   </div>
+
+  {% if not total %}
+  <div class="card-body-soft muted text-center py-5">Nothing saved for {{ month_start.strftime('%B %Y') }} yet. {% if editable %}Click <b>Import Inventory Masterlist</b> to save the codes that have a Next Count today, or <b>Import schedule</b> to load a SCHEDULE sheet (RM CODE + CALENDAR dates) into this month.{% else %}A manager has to import the Inventory Masterlist into this month first.{% endif %} Each month keeps its own data.</div>
+  {% elif view == 'calendar' %}
+  <div class="cp-cal-wrap">
+    <table class="cp-cal">
+      <thead><tr>{% for d in ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'] %}<th>{{ d }}</th>{% endfor %}</tr></thead>
+      <tbody>
+      {% for wk in weeks %}
+        <tr class="cp-dates">{% for d in wk %}{% set es = by_day.get(d, []) %}
+          <td class="{{ 'cp-out' if d.month != m }}{{ ' cp-today' if d == today }}">
+            <span class="cp-daynum">{{ '%02d' % d.day }}</span>
+            {% if es %}<span class="cp-badge" title="{{ es|length }} code(s)">{{ es|length }}</span>{% endif %}
+          </td>{% endfor %}</tr>
+        <tr class="cp-codes">{% for d in wk %}{% set es = by_day.get(d, []) %}
+          <td class="{{ 'cp-out' if d.month != m }}">
+            {% if es %}<div class="cp-list">{% for e in es %}<a href="/items/{{ e.code }}" class="cp-code{{ ' cp-moved' if e.adjusted_date }}" title="{{ e.description or '' }}{{ ' (moved from ' ~ e.original_date.strftime('%b %d, %Y') ~ ')' if e.adjusted_date }}">{{ e.code }}</a>{{ '; ' if not loop.last }}{% endfor %}</div>
+            {% else %}<div class="cp-none">-</div>{% endif %}
+          </td>{% endfor %}</tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="table-foot"><span>{{ month_count }} code(s) on this month's dates ({{ total }} saved for the month{% if imported_at %}, imported {{ imported_at.astimezone().strftime('%b %d, %Y %H:%M') }}{% endif %}) · <span class="cp-moved">underlined</span> = adjusted date</span></div>
+
+  {% else %}
+  {% if editable %}
+  <form method="post" action="/planning/adjust" class="cp-entry no-print" id="cp-entry" autocomplete="off">
+    <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="month" value="{{ month_key }}">
+    <div class="f"><label for="cp-code">Code</label><input class="form-control form-control-sm" id="cp-code" name="code" required placeholder="Type a code, then Tab" autofocus></div>
+    <div class="f f-wide"><label for="cp-desc">Description</label><input class="form-control form-control-sm" id="cp-desc" readonly placeholder="Auto"></div>
+    <div class="f"><label for="cp-class">Classification</label><input class="form-control form-control-sm" id="cp-class" readonly placeholder="Auto"></div>
+    <div class="f"><label for="cp-date">Adjusted Date</label><input class="form-control form-control-sm" id="cp-date" type="date" name="adjusted_date" required></div>
+    <div class="f"><label for="cp-plant">Plant Location</label><input class="form-control form-control-sm" id="cp-plant" readonly placeholder="Auto"></div>
+    <div class="f f-btn"><button class="btn btn-primary btn-sm"><i class="bi bi-plus-lg"></i> Save</button></div>
+    <div class="cp-msg small-note" id="cp-msg" aria-live="polite"></div>
+  </form>
+  {% endif %}
+  <form method="get" class="cp-search no-print"><input type="hidden" name="view" value="list"><input type="hidden" name="month" value="{{ month_key }}">
+    <input class="form-control form-control-sm" type="search" name="q" value="{{ q }}" placeholder="Search code / description"><button class="btn btn-soft btn-sm">Search</button></form>
+  <form method="post" action="/planning/save" id="cp-save-form">
+    <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="month" value="{{ month_key }}">
+    <input type="hidden" name="back" value="{{ request.url.path }}?{{ request.url.query }}">
+    <div class="cp-table-wrap">
+      <table class="table table-soft table-compact cp-table">
+        <thead><tr><th>Original Date</th><th>Code</th><th>Adjusted Date</th><th>Description</th><th>Classification</th><th>Plant Location</th><th>In Charge</th><th>Last Edited</th></tr></thead>
+        <tbody>
+        {% for e in rows %}
+          <tr data-row>
+            <td>{{ fmt(e.original_date, 'longdate') }}</td>
+            <td><a class="row-link" href="/items/{{ e.code }}">{{ e.code }}</a>{% if editable %}<input type="hidden" name="code" value="{{ e.code }}" disabled>{% endif %}</td>
+            <td>{% if editable %}<input class="form-control form-control-sm cp-inline" type="date" name="adjusted_date" value="{{ e.adjusted_date.isoformat() if e.adjusted_date }}" data-orig="{{ e.adjusted_date.isoformat() if e.adjusted_date }}" aria-label="Adjusted date for {{ e.code }}" disabled>
+                {% else %}{{ fmt(e.adjusted_date, 'longdate') }}{% endif %}</td>
+            <td class="desc-cell">{{ e.description or '–' }}</td>
+            <td>{{ pill(e.classification) }}</td>
+            <td>{{ e.plant_location or '–' }}</td>
+            <td>{% if editable %}<input class="form-control form-control-sm cp-inline" name="in_charge" value="{{ e.in_charge or '' }}" data-orig="{{ e.in_charge or '' }}" maxlength="120" placeholder="Add name" aria-label="In charge for {{ e.code }}" disabled>
+                {% else %}{{ e.in_charge or '–' }}{% endif %}</td>
+            <td class="cp-last small-note">{{ e.last_edit or '–' }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="8" class="text-center muted py-4">No code matches.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="table-foot"><span>{{ rows|length }} code(s) in the {{ month_start.strftime('%B %Y') }} list{% if imported_at %} · imported {{ imported_at.astimezone().strftime('%b %d, %Y %H:%M') }}{% endif %}</span></div>
+    {% if editable %}
+    <div class="cp-savebar no-print" id="cp-savebar" hidden>
+      <span id="cp-dirty-count">0 rows changed</span>
+      <span class="flex-grow-1"></span>
+      <button type="button" class="btn btn-soft btn-sm" id="cp-discard">Discard</button>
+      <button class="btn btn-primary btn-sm"><i class="bi bi-check2"></i> Save changes</button>
+    </div>
+    {% endif %}
+  </form>
+  {% endif %}
 </div>
-{{ report_card(res, pg, filters, params, export_q, query, request, cell, fmt, selectable=can('plan.manage')) }}
 {% endblock %}
+{% block scripts %}<script src="/static/js/planning.js?v={{ static_v }}"></script>{% endblock %}

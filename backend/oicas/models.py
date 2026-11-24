@@ -489,3 +489,23 @@ class MasterlistRemark(Base):
     remark: Mapped[str | None] = mapped_column(Text)
     updated_at: Mapped[datetime] = mapped_column(TS, default=utcnow, onupdate=utcnow)
     updated_by_id: Mapped[int | None] = mapped_column(ForeignKey("app_user.id"))
+
+
+class CycleCountEntry(Base):
+    """Cycle Count Planning: a month is its own saved copy of the Inventory Masterlist codes that had a Next Count
+    when it was imported, plus the adjusted date / in-charge typed for that month."""
+    __tablename__ = "cycle_count_entry"
+    __table_args__ = (UniqueConstraint("month", "code", name="uq_cycle_count_entry_month_code"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    month: Mapped[str] = mapped_column(String(7), index=True)  # YYYY-MM
+    code: Mapped[str] = mapped_column(String(120))
+    description: Mapped[str | None] = mapped_column(Text)
+    classification: Mapped[str | None] = mapped_column(String(80))
+    plant_location: Mapped[str | None] = mapped_column(String(80))
+    original_date: Mapped[date] = mapped_column(Date)
+    adjusted_date: Mapped[date | None] = mapped_column(Date)
+    in_charge: Mapped[str | None] = mapped_column(String(120))
+    last_edit: Mapped[str | None] = mapped_column(String(300))
+    imported_at: Mapped[datetime] = mapped_column(TS, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(TS, default=utcnow, onupdate=utcnow)
+    updated_by_id: Mapped[int | None] = mapped_column(ForeignKey("app_user.id"))

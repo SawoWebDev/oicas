@@ -26,7 +26,7 @@ def _static_version() -> str:
     """Fingerprint of our own CSS/JS: appended as ?v=… so browsers fetch new files after an update."""
     import hashlib
     h = hashlib.sha256()
-    for rel in ("css/gas-base.css", "css/app.css", "js/app.js", "js/annual.js", "js/amc_import.js"):
+    for rel in ("css/gas-base.css", "css/app.css", "js/app.js", "js/annual.js", "js/amc_import.js", "js/planning.js"):
         p = BASE / "static" / rel
         if p.exists():
             h.update(p.read_bytes())

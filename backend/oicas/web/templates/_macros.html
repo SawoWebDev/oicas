@@ -1,6 +1,6 @@
-{% macro sort_th(col, query, request) -%}
+{% macro sort_th(col, query, request, extra='') -%}
   {% set cur = request.query_params.get('sort') %}{% set desc = request.query_params.get('dir') == 'desc' %}
-  <th class="{% if col.kind in ('qty','int','pct') %}text-end{% endif %}{% if col.key == 'description' %} desc-cell{% endif %}">
+  <th class="{% if col.kind in ('qty','int','pct') %}text-end{% endif %}{% if col.key == 'description' %} desc-cell{% endif %}{{ extra }}">
     <a class="sort-link {% if cur == col.key %}active{% endif %}" href="{{ query(sort=col.key, dir=('asc' if cur == col.key and desc else 'desc') if cur == col.key else 'asc', page=None) }}">
       {{ col.label }} <i class="bi {% if cur == col.key %}{{ 'bi-caret-down-fill' if desc else 'bi-caret-up-fill' }}{% else %}bi-chevron-expand{% endif %}"></i></a>
   </th>
@@ -44,19 +44,19 @@
   </form>
 {%- endmacro %}
 
-{% macro report_table(res, pg, query, request, cell, selectable=false) -%}
-  <div class="table-responsive">
+{% macro report_table(res, pg, query, request, cell, selectable=false, freeze=0) -%}
+  <div class="table-responsive{% if freeze %} tbl-freeze{% endif %}">
     <table class="table table-soft table-compact">
       <thead class="sticky-top"><tr>
         {% if selectable %}<th><input class="form-check-input" type="checkbox" data-check-all=".row-check"></th>{% endif %}
-        {% for c in res.columns %}{{ sort_th(c, query, request) }}{% endfor %}
+        {% for c in res.columns %}{{ sort_th(c, query, request, (' fz fz' ~ loop.index) if freeze and loop.index <= freeze else '') }}{% endfor %}
       </tr></thead>
       <tbody>
       {% for row in pg.rows %}
         <tr>
           {% if selectable %}<td><input class="form-check-input row-check" type="checkbox" name="codes" value="{{ row.code }}" form="plan-form"></td>{% endif %}
           {% for c in res.columns %}
-            <td class="{% if c.kind in ('qty','int','pct') %}text-end{% endif %}{% if c.key == 'description' %} desc-cell{% endif %}">
+            <td class="{% if c.kind in ('qty','int','pct') %}text-end{% endif %}{% if c.key == 'description' %} desc-cell{% endif %}{% if freeze and loop.index <= freeze %} fz fz{{ loop.index }}{% endif %}">
               {% if loop.first and res.link %}<a class="row-link" href="{{ res.link.format(**row) }}">{{ cell(row, c) }}</a>{% else %}{{ cell(row, c) }}{% endif %}
             </td>
           {% endfor %}
@@ -73,7 +73,7 @@
   </div>
 {%- endmacro %}
 
-{% macro report_card(res, pg, filters, params, export_q, query, request, cell, fmt, selectable=false, show_meta=true) -%}
+{% macro report_card(res, pg, filters, params, export_q, query, request, cell, fmt, selectable=false, show_meta=true, freeze=0) -%}
 <div class="card-soft">
   <div class="card-head">
     <h2>{{ res.title }} <span class="muted fw-normal">({{ "{:,}".format(pg.count) }})</span></h2>
@@ -94,6 +94,6 @@
       {% if res.meta.note %}{{ res.meta.note }}{% endif %}
     </div>
   {% endif %}
-  {{ report_table(res, pg, query, request, cell, selectable) }}
+  {{ report_table(res, pg, query, request, cell, selectable, freeze) }}
 </div>
 {%- endmacro %}
